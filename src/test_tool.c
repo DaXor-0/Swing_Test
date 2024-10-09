@@ -72,7 +72,7 @@ int create_filename(char *filename, size_t fn_size, int comm_sz, size_t array_si
     fprintf(stderr, "Failed to retrieve algorithm number.\n");
     return -1; // Exit if the algorithm number could not be retrieved
   }
-  snprintf(filename, fn_size, "%s_%d_%ld_%d", time_string, comm_sz, array_size, alg_number);
+  snprintf(filename, fn_size, "%s_%d_%ld_%d.txt", time_string, comm_sz, array_size, alg_number);
 
   return 0;
 }
