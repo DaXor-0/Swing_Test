@@ -74,10 +74,15 @@ int main(int argc, char *argv[]) {
     all_times = (double *)malloc(comm_sz * iter * sizeof(double));
   }
   MPI_Gather(times, iter, MPI_DOUBLE, all_times, iter, MPI_DOUBLE, 0, comm);
-  
-  
+
+  double *highest = NULL;
+  if (rank == 0) {
+    highest = (double *)malloc(iter * sizeof(double));
+  }
+  MPI_Reduce(times, highest, iter, MPI_DOUBLE, MPI_MAX, 0, comm);
+
   char filename[256];
-  if (create_filename(filename, sizeof(filename), comm_sz, array_size) == -1) {
+  if (create_filename(filename, sizeof(filename), comm_sz, array_size, global_is_valid) == -1) {
       fprintf(stderr, "Error: Failed to create the filename.\n");
       MPI_Abort(comm, 1);
   }
@@ -97,11 +102,11 @@ int main(int argc, char *argv[]) {
       MPI_Abort(comm, 1);
     }
 
-    fprintf(output_file, "IS VALID : %d\niter, rank1, rank2, ..., rankn\n", global_is_valid);
+    fprintf(output_file, "iter, highest, rank1, rank2, ..., rankn, TIME IN MICROSECONDS (10^-6 s)\n");
     for (i = 0; i < iter; i++) {
-      fprintf(output_file, "%d", i + 1); // Write iteration number
+      fprintf(output_file, "%d %d", i + 1, (int) (highest[i] * 1000000)); // Write iteration number and the highest number
       for (int j = 0; j < comm_sz; j++) {
-        fprintf(output_file, " %.6f", all_times[j * iter + i]); // Write the time for each rank
+        fprintf(output_file, " %d", (int) (all_times[j * iter + i] * 1000000)); // Write the time for each rank
       }
       fprintf(output_file, "\n");
     }
@@ -115,6 +120,7 @@ int main(int argc, char *argv[]) {
   free(times);
   if (rank == 0){
     free(all_times);
+    free(highest);
   }
   
   MPI_Finalize();

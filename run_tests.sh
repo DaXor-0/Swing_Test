@@ -53,8 +53,22 @@ fi
 
 # export "UCX_IB_SL=1"
 
+export "OMPI_MCA_coll_tuned_use_dynamic_rules=0"
+
+for proc in "${PROCESSES[@]}"; do
+    for size in "${ARRAY_SIZES[@]}"; do
+        if (( size < proc )); then
+            echo "Skipping: array size $size <= number of processes $proc (BASELINE)"
+            continue
+        fi
+
+        echo "Running with $proc processes and array size $size (BASELINE)"
+        mpirun -np $proc $EXECUTABLE $size 50 $RES_DIR
+    done
+done
+
 # Run the tests for each number from 1 to 12
-for algo in {8..12}; do
+for algo in {8..9}; do
     # Update the collective_rules.txt using the C program
     ./update_collective_rules ${RULES_FILE_PATH} $algo
     export "OMPI_MCA_coll_tuned_use_dynamic_rules=1"

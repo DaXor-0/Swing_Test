@@ -59,7 +59,7 @@ int get_alg_number(const char *filename) {
 }
 
 
-int create_filename(char *filename, size_t fn_size, int comm_sz, size_t array_size){
+int create_filename(char *filename, size_t fn_size, int comm_sz, size_t array_size, int valid){
   // Get the current time
   time_t now = time(NULL);
   struct tm *tm_info = localtime(&now);
@@ -68,14 +68,26 @@ int create_filename(char *filename, size_t fn_size, int comm_sz, size_t array_si
   // Format the time string
   strftime(time_string, sizeof(time_string), "%Y-%m-%d_%H-%M-%S", tm_info);
   
-  // Construct the output filename
-  int alg_number = get_alg_number("./collective_rules.txt");
-  if (alg_number == -1) {
-    fprintf(stderr, "Failed to retrieve algorithm number.\n");
-    return -1; // Exit if the algorithm number could not be retrieved
+  char *dynamic_rules = getenv("OMPI_MCA_coll_tuned_use_dynamic_rules");
+  if (dynamic_rules == NULL){
+    fprintf(stderr, "Failed to retrieve dynamic_rules env var.\n");
+    return -1;
   }
-  snprintf(filename, fn_size, "%s_%d_%ld_%d.txt", time_string, comm_sz, array_size, alg_number);
 
+  // If I'm using a custom algorithm, the filename starts with the number of the algorithm, otherwise 0
+  if (strcmp(dynamic_rules, "1") == 0){
+    // Construct the output filename
+    int alg_number = get_alg_number("./collective_rules.txt");
+    if (alg_number == -1) {
+      fprintf(stderr, "Failed to retrieve algorithm number.\n");
+      return -1; // Exit if the algorithm number could not be retrieved
+    }
+    
+    snprintf(filename, fn_size, (valid == 1) ? "%d_%d_%ld___%s___true.txt" : "%d_%d_%ld___%s___false.txt", alg_number, comm_sz, array_size, time_string);
+  }
+  else{
+    snprintf(filename, fn_size, (valid == 1) ? "0_%d_%ld___%s___true.txt" : "0_%d_%ld___%s___false.txt", comm_sz, array_size, time_string);
+  }
   return 0;
 }
 
