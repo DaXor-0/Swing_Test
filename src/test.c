@@ -4,8 +4,7 @@
 #include "test_tool.h"
 
 int main(int argc, char *argv[]) {
-  int rank, comm_sz;
-  int iter, i;
+  int rank, comm_sz, i;
 
   MPI_Init(NULL, NULL);
   MPI_Comm comm = MPI_COMM_WORLD;
@@ -13,9 +12,9 @@ int main(int argc, char *argv[]) {
   MPI_Comm_size(comm, &comm_sz);
   
   // Error checking for command-line arguments
-  if (argc < 3) {
+  if (argc < 4) {
     if (rank == 0) {
-      fprintf(stderr, "Usage: %s <array_size> <iterations>\n", argv[0]);
+      fprintf(stderr, "Usage: %s <array_size> <iterations> <dirpath>\n", argv[0]);
     }
     MPI_Abort(comm, 1);
   }
@@ -83,11 +82,18 @@ int main(int argc, char *argv[]) {
       MPI_Abort(comm, 1);
   }
 
+  const char *dirpath = argv[3];
+  char fullpath[MAX_PATH_LENGTH];
+  if (concatenate_path(dirpath, filename, fullpath) == -1) {
+      fprintf(stderr, "Error: Failed to create fullpath.\n");
+      MPI_Abort(comm, 1);
+  }
+
   FILE *output_file = NULL;
   if (rank == 0) {
-    output_file = fopen(filename, "w");
+    output_file = fopen(fullpath, "w");
     if (output_file == NULL) {
-      fprintf(stderr, "Error opening file %s for writing\n", filename);
+      fprintf(stderr, "Error opening file %s for writing\n", fullpath);
       MPI_Abort(comm, 1);
     }
 
@@ -114,3 +120,4 @@ int main(int argc, char *argv[]) {
   MPI_Finalize();
   return 0;
 }
+

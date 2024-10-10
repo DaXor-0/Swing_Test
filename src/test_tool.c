@@ -3,6 +3,8 @@
 #include <string.h>
 #include <time.h>
 
+#include "test_tool.h"
+
 // Write on random array of lenght len
 void rand_array_generator(int *target, size_t len, int rank){
   unsigned int seed = time(NULL) + rank; 
@@ -78,3 +80,33 @@ int create_filename(char *filename, size_t fn_size, int comm_sz, size_t array_si
 }
 
 
+int concatenate_path(const char *dirpath, const char *filename, char *fullpath){
+  if (dirpath == NULL || filename == NULL) {
+    fprintf(stderr, "Error: Directory path or filename is NULL.\n");
+    return -1;
+  }
+
+  // Check if the lengths of dirpath and filename are within the allowed size
+  size_t dirpath_len = strlen(dirpath);
+  size_t filename_len = strlen(filename);
+
+  if (dirpath_len == 0) {
+    fprintf(stderr, "Error: Directory path is empty.\n");
+    return -1;
+  }
+
+  // Ensure the final full path won't exceed buffer size
+  if (dirpath_len + filename_len + 2 > MAX_PATH_LENGTH) {
+    // +2 accounts for a possible '/' and the null terminator
+    fprintf(stderr, "Error: Combined path length exceeds buffer size.\n");
+    return -1;
+  }
+
+  // Initialize fullpath with the directory path
+  strcpy(fullpath, dirpath);
+
+  // Concatenate the filename to the directory path
+  strcat(fullpath, filename);
+
+  return 0;
+}
