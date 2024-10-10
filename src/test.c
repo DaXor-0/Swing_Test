@@ -102,11 +102,11 @@ int main(int argc, char *argv[]) {
       MPI_Abort(comm, 1);
     }
 
-    fprintf(output_file, "iter, highest, rank1, rank2, ..., rankn, TIME IN MICROSECONDS (10^-6 s)\n");
+    fprintf(output_file, "iter, highest, rank1, rank2, ..., rankn, TIME IN NANOSECONDS (10^-9 s)\n");
     for (i = 0; i < iter; i++) {
-      fprintf(output_file, "%d %d", i + 1, (int) (highest[i] * 1000000)); // Write iteration number and the highest number
+      fprintf(output_file, "%d %d", i + 1, (int) (highest[i] * 1000000000)); // Write iteration number and the highest number
       for (int j = 0; j < comm_sz; j++) {
-        fprintf(output_file, " %d", (int) (all_times[j * iter + i] * 1000000)); // Write the time for each rank
+        fprintf(output_file, " %d", (int) (all_times[j * iter + i] * 1000000000)); // Write the time for each rank
       }
       fprintf(output_file, "\n");
     }

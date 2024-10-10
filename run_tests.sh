@@ -1,4 +1,4 @@
-#!/bin/bash
+#e/bin/bash
 
 # Paths
 EXECUTABLE=./out
@@ -25,7 +25,7 @@ PROCESSES=(
 )
 ARRAY_SIZES=(
   10
-  100
+  # 100
   # 1000
   # 10000
   # 100000
@@ -36,6 +36,25 @@ ARRAY_SIZES=(
   # 10000000000
 )
 
+# Corresponding iterations for each array size
+ITERATIONS=(
+  1000   # For array size 10
+  # 1000   # For array size 100
+  # 1000   # For array size 1000
+  # 500   # For array size 10000
+  # 500   # For array size 100000
+  # 100   # For array size 1000000
+  # 100   # For array size 10000000
+  # 50   # For array size 100000000
+  # 50   # For array size 1000000000
+  # 50  # For array size 10000000000
+)
+
+# Check if the number of sizes and iterations match
+if [ ${#ARRAY_SIZES[@]} -ne ${#ITERATIONS[@]} ]; then
+    echo "Error: The number of array sizes and iterations must match."
+    exit 1
+fi
 
 # Check if the directory exists
 if [ -d "$RES_DIR" ]; then
@@ -55,15 +74,18 @@ fi
 
 export "OMPI_MCA_coll_tuned_use_dynamic_rules=0"
 
+# Run the tests with different process counts and array sizes
 for proc in "${PROCESSES[@]}"; do
-    for size in "${ARRAY_SIZES[@]}"; do
+    for index in "${!ARRAY_SIZES[@]}"; do
+        size=${ARRAY_SIZES[$index]}
+        iter=${ITERATIONS[$index]}
         if (( size < proc )); then
             echo "Skipping: array size $size <= number of processes $proc (BASELINE)"
             continue
         fi
 
         echo "Running with $proc processes and array size $size (BASELINE)"
-        mpirun -np $proc $EXECUTABLE $size 50 $RES_DIR
+        mpirun -np $proc $EXECUTABLE $size $iter $RES_DIR
     done
 done
 
@@ -76,14 +98,16 @@ for algo in {8..9}; do
 
     # Run the tests with different process counts and array sizes
     for proc in "${PROCESSES[@]}"; do
-        for size in "${ARRAY_SIZES[@]}"; do
+        for index in "${!ARRAY_SIZES[@]}"; do
+            size=${ARRAY_SIZES[$index]}
+            iter=${ITERATIONS[$index]}
             if (( size < proc )); then
                 echo "Skipping: array size $size <= number of processes $proc (Algo: $algo)"
                 continue
             fi
 
             echo "Running with $proc processes and array size $size (Algo: $algo)"
-            mpirun -np $proc $EXECUTABLE $size 50 $RES_DIR
+            mpirun -np $proc $EXECUTABLE $size $iter $RES_DIR
         done
     done
 done
