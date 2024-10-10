@@ -1,4 +1,5 @@
 obj/
 unused/
 out
+update_collective_rules
 *.txt

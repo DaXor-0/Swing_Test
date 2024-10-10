@@ -1,19 +1,34 @@
-CC = mpicc
-CFLAGS = -g -O3 -Wall 
+MPICC = mpicc
+CFLAGS_MPI = -g -O3 -Wall
+
+GCC = gcc
 
 SRC_DIR = src
 OBJ_DIR = obj
 
 SRCS = $(wildcard $(SRC_DIR)/*.c)
 OBJS = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SRCS))
-EXEC = out
 
-$(EXEC): $(OBJS)
-	$(CC) $(CFLAGS) $(OBJS) -o $(EXEC)
+# Executable names
+MAIN_EXEC = out
+RULES_EXEC = update_collective_rules
 
+# Main target that builds both executables
+all: $(MAIN_EXEC) $(RULES_EXEC)
+
+# Build the main test executable with mpicc
+$(MAIN_EXEC): $(OBJS)
+	$(MPICC) $(CFLAGS_MPI) $(OBJS) -o $(MAIN_EXEC)
+
+# Build object files for the source files in the src directory with mpicc
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(MPICC) $(CFLAGS_MPI) -c $< -o $@
 
+# Compile update_collective_rules.c into its own executable with gcc and different flags
+$(RULES_EXEC): update_collective_rules.c
+	$(GCC) update_collective_rules.c -o $(RULES_EXEC)
+
+# Clean command that removes object files and both executables
 clean:
-	rm -rf $(OBJ_DIR) $(EXEC)
+	rm -rf $(OBJ_DIR) $(MAIN_EXEC) $(RULES_EXEC)
