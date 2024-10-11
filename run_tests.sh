@@ -1,60 +1,59 @@
 #e/bin/bash
 
+cleanup() {
+    echo "Caught Ctrl+C! Stopping the script and killing all child processes..."
+    pkill -P $$    # Kills all processes whose parent is the current script
+    exit 1         # Exit the script with a non-zero status
+}
+
+trap cleanup SIGINT
+
 # Paths
-EXECUTABLE=./out
+TEST_EXEC=./out
+
+RULE_FILE_PATH=./collective_rules.txt
+RULE_FILE_ABS_PATH=/home/saverio/University/Tesi/test/collective_rules.txt
+RULE_UPDATER_EXEC=./update_collective_rules
+
 RES_DIR=./results/
-RULES_FILE_PATH=./collective_rules.txt
-ABS_PATH=/home/saverio/University/Tesi/test/collective_rules.txt
+TIMESTAMP=$(date +"%Y_%m_%d___%H:%M:%S")
+OUTPUT_DIR="$RES_DIR/$TIMESTAMP/"
 
 # Array of process counts and array sizes
-PROCESSES=(
+N_PROC=(
   2
   4
-  # 8
-  # 16
-  # 32
-  # 64
-  # 128
-  # 256
-  # 512
-  # 1024
-  # 2048
-  # 4096
-  # 8192
-  # 16384
-)
-ARRAY_SIZES=(
-  10
-  # 100
-  # 1000
-  # 10000
-  # 100000
-  # 1000000
-  # 10000000
-  # 100000000
-  # 1000000000
-  # 10000000000
+  8
+  16
+  32
+  64
+  128
+  256
+  512
+  1024
+  2048
+  4096
+  8192
+  16384
 )
 
-# Corresponding iterations for each array size
-ITERATIONS=(
-  1000   # For array size 10
-  # 1000   # For array size 100
-  # 1000   # For array size 1000
-  # 500   # For array size 10000
-  # 500   # For array size 100000
-  # 100   # For array size 1000000
-  # 100   # For array size 10000000
-  # 50   # For array size 100000000
-  # 50   # For array size 1000000000
-  # 50  # For array size 10000000000
+ARR_SIZES=(
+  1
+  8
+  64
+  512
+  2048
+  16384
+  131072
+  1048576
+  8388608
+  67108864
 )
 
-# Check if the number of sizes and iterations match
-if [ ${#ARRAY_SIZES[@]} -ne ${#ITERATIONS[@]} ]; then
-    echo "Error: The number of array sizes and iterations must match."
-    exit 1
-fi
+
+type=int
+
+
 
 # Check if the directory exists
 if [ -d "$RES_DIR" ]; then
@@ -62,52 +61,66 @@ if [ -d "$RES_DIR" ]; then
 else
     echo "Directory $RES_DIR does not exist. Creating it..."
     mkdir -p "$RES_DIR"  # Create the directory if it doesn't exist
-    if [ $? -eq 0 ]; then
-        echo "Directory $RES_DIR created successfully."
-    else
-        echo "Failed to create directory $RES_DIR."
-        exit 1
-    fi
 fi
 
-# export "UCX_IB_SL=1"
+mkdir -p "$OUTPUT_DIR"
 
-export "OMPI_MCA_coll_tuned_use_dynamic_rules=0"
+export "UCX_IB_SL=1"
 
 # Run the tests with different process counts and array sizes
-for proc in "${PROCESSES[@]}"; do
-    for index in "${!ARRAY_SIZES[@]}"; do
-        size=${ARRAY_SIZES[$index]}
-        iter=${ITERATIONS[$index]}
-        if (( size < proc )); then
-            echo "Skipping: array size $size <= number of processes $proc (BASELINE)"
+export "OMPI_MCA_coll_tuned_use_dynamic_rules=0"
+for n in "${N_PROC[@]}"; do
+    for size in "${ARR_SIZES[@]}"; do
+        iter=0
+        if [ $size -le 512 ]; then
+            iter=10000
+        elif [ $size -le 1048576 ]; then
+            iter=1000
+        elif [ $size -le 8388608 ]; then
+            iter=100
+        elif [ $size -le 67108864 ]; then
+            iter=10
+        else
+            iter=4
+        fi
+        if (( size < n )); then
+            echo "Skipping: array size $size <= number of processes $n (BASELINE)"
             continue
         fi
 
-        echo "Running with $proc processes and array size $size (BASELINE)"
-        mpirun -np $proc $EXECUTABLE $size $iter $RES_DIR
+        echo "Running with $n processes and array size $size (BASELINE)"
+        mpirun -np $n $TEST_EXEC $size $iter $type $OUTPUT_DIR
     done
 done
 
-# Run the tests for each number from 1 to 12
-for algo in {8..9}; do
-    # Update the collective_rules.txt using the C program
-    ./update_collective_rules ${RULES_FILE_PATH} $algo
-    export "OMPI_MCA_coll_tuned_use_dynamic_rules=1"
-    export "OMPI_MCA_coll_tuned_dynamic_rules_filename=${ABS_PATH}"
+# Run the tests on specific algorithms
+export "OMPI_MCA_coll_tuned_use_dynamic_rules=1"
+for algo in {8..12}; do
+    $RULE_UPDATER_EXEC $RULE_FILE_PATH $algo
+    export "OMPI_MCA_coll_tuned_dynamic_rules_filename=${RULE_FILE_ABS_PATH}"
 
     # Run the tests with different process counts and array sizes
-    for proc in "${PROCESSES[@]}"; do
-        for index in "${!ARRAY_SIZES[@]}"; do
-            size=${ARRAY_SIZES[$index]}
-            iter=${ITERATIONS[$index]}
-            if (( size < proc )); then
-                echo "Skipping: array size $size <= number of processes $proc (Algo: $algo)"
+    for n in "${N_PROC[@]}"; do
+        for size in "${ARR_SIZES[@]}"; do
+            iter=0
+            if [ $size -le 512 ]; then
+                iter=10000
+            elif [ $size -le 1048576 ]; then
+                iter=1000
+            elif [ $size -le 8388608 ]; then
+                iter=100
+            elif [ $size -le 67108864 ]; then
+                iter=10
+            else
+                iter=4
+            fi
+            if (( size < n )); then
+                echo "Skipping: array size $size <= number of processes $n (Algo: {$algo})"
                 continue
             fi
 
-            echo "Running with $proc processes and array size $size (Algo: $algo)"
-            mpirun -np $proc $EXECUTABLE $size $iter $RES_DIR
+            echo "Running with $n processes and array size $size (Algo: {$algo})"
+            mpirun -np $n $TEST_EXEC $size $iter $type $OUTPUT_DIR
         done
     done
 done
