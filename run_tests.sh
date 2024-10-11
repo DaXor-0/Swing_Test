@@ -1,4 +1,4 @@
-#e/bin/bash
+#!/bin/bash
 
 cleanup() {
     echo "Caught Ctrl+C! Stopping the script and killing all child processes..."
