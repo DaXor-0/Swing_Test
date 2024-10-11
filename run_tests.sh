@@ -8,13 +8,22 @@ cleanup() {
 
 trap cleanup SIGINT
 
-leondardo=0
+leondardo=1
 
 if [ leonardo == 1 ]; then
+    export PATH=/leonardo/home/userexternal/spasqual/bin:$PATH
+    export LD_LIBRARY_PATH=/leonardo/home/userexternal/spasqual/lib:$LD_LIBRARY_PATH
+    export MANPATH=/leonardo/home/userexternal/spasqual/share/man:$MANPATH
+    
     export "UCX_IB_SL=1"
-    RULE_FILE_ABS_PATH=/leonardo/home/userexternal/spasqual/Swing_Test/collective_rules.txt
+    
     MPIRUN=srun
+    RULE_FILE_ABS_PATH=/leonardo/home/userexternal/spasqual/Swing_Test/collective_rules.txt
 else
+    export PATH=/opt/ompi_test/bin:$PATH
+    export LD_LIBRARY_PATH=/opt/ompi_test/lib:$LD_LIBRARY_PATH
+    export MANPATH=/opt/ompi_test/share/man:$MANPATH
+    
     MPIRUN=mpirun
     RULE_FILE_ABS_PATH=/home/saverio/University/Tesi/test/collective_rules.txt
 fi
