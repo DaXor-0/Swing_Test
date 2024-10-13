@@ -70,9 +70,9 @@ run_test() {
     local n=$1
     local size=$2
     local iter=$3
-    local algo_name=$4  # "BASELINE" or the algorithm number
+    local algo=$4  # "BASELINE" or the algorithm number
 
-    echo "Running with $n processes and array size $size (Algo: $algo_name)"
+    echo "Running with $n processes and array size $size (Algo: $algo)"
     $RUN -n $n $TEST_EXEC $size $iter $TYPE $RULE_FILE_PATH $OUTPUT_DIR
 }
 
@@ -114,7 +114,7 @@ for algo in $(seq 8 12); do
     for n in "${N_PROC[@]}"; do
         for size in "${ARR_SIZES[@]}"; do
             if (( size < n )); then
-                echo "Skipping: array size $size <= number of processes $n (Algo: {$algo})"
+                echo "Skipping: array size $size <= number of processes $n (Algo: $algo)"
                 continue
             fi
 
