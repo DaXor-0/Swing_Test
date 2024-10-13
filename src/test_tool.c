@@ -121,7 +121,7 @@ int get_alg_number(const char *filename, int *alg_number) {
 }
 
 
-int create_filename(char *filename, size_t fn_size, int comm_sz, size_t array_size, const char *type_string){
+int create_filename(char *filename, size_t fn_size, int comm_sz, size_t array_size, const char *type_string, const char *rulepath){
   char *dynamic_rules = getenv("OMPI_MCA_coll_tuned_use_dynamic_rules");
   if (dynamic_rules == NULL){
     fprintf(stderr, "Failed to retrieve dynamic_rules env var.\n");
@@ -131,7 +131,7 @@ int create_filename(char *filename, size_t fn_size, int comm_sz, size_t array_si
   // If I'm selectiong an algorithm, the filename starts with the number of the algorithm, otherwise 0
   if (strcmp(dynamic_rules, "1") == 0){
     int alg_number;
-    if (get_alg_number("./collective_rules.txt", &alg_number) == -1){
+    if (get_alg_number(rulepath, &alg_number) == -1){
       fprintf(stderr, "Failed to retrieve algorithm number.\n");
       return -1;
     }

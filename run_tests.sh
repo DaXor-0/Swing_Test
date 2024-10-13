@@ -8,23 +8,22 @@ cleanup() {
 
 trap cleanup SIGINT
 
-
 # Setup for local tests or for leonardo tests
-# location='local'
+location='local'
 # location='leonardo'
 
 if [ $location == 'leonardo' ]; then
     export PATH=/leonardo/home/userexternal/spasqual/bin:$PATH
     export LD_LIBRARY_PATH=/leonardo/home/userexternal/spasqual/lib:$LD_LIBRARY_PATH
     export MANPATH=/leonardo/home/userexternal/spasqual/share/man:$MANPATH
-    
+
     export "OMPI_MCA_coll_hcoll_enable=0"
     export "UCX_IB_SL=1"
-    
+
     RUN=srun
-    RULE_FILE_ABS_PATH=/leonardo/home/userexternal/spasqual/Swing_Test/collective_rules.txt
-    TEST_EXEC=./Swing_Test/out
-    RULE_UPDATER_EXEC=./Swing_Test/update_collective_rules
+    TEST_EXEC=/leonardo/home/userexternal/spasqual/Swing_Test/out
+    RULE_UPDATER_EXEC=/leonardo/home/userexternal/spasqual/Swing_Test/update_collective_rules
+    RULE_FILE_PATH=/leonardo/home/userexternal/spasqual/Swing_Test/collective_rules.txt
 elif [ $location == 'local' ]; then
     export PATH=/opt/ompi_test/bin:$PATH
     export LD_LIBRARY_PATH=/opt/ompi_test/lib:$LD_LIBRARY_PATH
@@ -33,23 +32,21 @@ elif [ $location == 'local' ]; then
     export "OMPI_MCA_coll_hcoll_enable=0"
     
     RUN=mpiexec
-    RULE_FILE_ABS_PATH=/home/saverio/University/Tesi/test/collective_rules.txt
     TEST_EXEC=./out
     RULE_UPDATER_EXEC=./update_collective_rules
+    RULE_FILE_PATH=/home/saverio/University/Tesi/test/collective_rules.txt
 else
     echo "ERROR: location not correctly set up, aborting..."
     exit 1
 fi
 
 
-
-RULE_FILE_PATH=./collective_rules.txt
 RES_DIR=./results/
 TIMESTAMP=$(date +"%Y_%m_%d___%H:%M:%S")
 OUTPUT_DIR="$RES_DIR/$TIMESTAMP/"
 
-N_PROC=(2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384)
-ARR_SIZES=(1 8 64 512 2048 16384 131072 1048576 8388608 67108864)
+N_PROC=(2 4 8) # 16 32 64 128 256 512 1024 2048 4096 8192 16384)
+ARR_SIZES=(1 8) # 64 512 2048 16384 131072 1048576 8388608 67108864)
 TYPE=int
 
 
@@ -76,7 +73,7 @@ run_test() {
     local algo_name=$4  # "BASELINE" or the algorithm number
 
     echo "Running with $n processes and array size $size (Algo: $algo_name)"
-    $MPIRUN -n $n $TEST_EXEC $size $iter $TYPE $OUTPUT_DIR
+    $RUN -n $n $TEST_EXEC $size $iter $TYPE $RULE_FILE_PATH $OUTPUT_DIR
 }
 
 
@@ -112,7 +109,7 @@ done
 export "OMPI_MCA_coll_tuned_use_dynamic_rules=1"
 for algo in $(seq 8 12); do
     $RULE_UPDATER_EXEC $RULE_FILE_PATH $algo
-    export "OMPI_MCA_coll_tuned_dynamic_rules_filename=${RULE_FILE_ABS_PATH}"
+    export "OMPI_MCA_coll_tuned_dynamic_rules_filename=${RULE_FILE_PATH}"
 
     for n in "${N_PROC[@]}"; do
         for size in "${ARR_SIZES[@]}"; do

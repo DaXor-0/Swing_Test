@@ -11,9 +11,9 @@ int main(int argc, char *argv[]) {
   MPI_Comm_size(comm, &comm_sz);
   
   // Error checking for command-line arguments
-  if (argc < 5) {
+  if (argc < 6) {
     if (rank == 0) {
-      fprintf(stderr, "Usage: %s <array_size> <iterations> <dtype> <dirpath>\n", argv[0]);
+      fprintf(stderr, "Usage: %s <array_size> <iterations> <dtype> <rulepath> <dirpath>\n", argv[0]);
     }
     MPI_Abort(comm, 1);
   }
@@ -102,12 +102,13 @@ int main(int argc, char *argv[]) {
   MPI_Reduce(times, highest, iter, MPI_DOUBLE, MPI_MAX, 0, comm);
 
   char filename[256];
-  if (create_filename(filename, sizeof(filename), comm_sz, array_size, type_string) == -1) {
+  const char *rulepath = argv[4];
+  if (create_filename(filename, sizeof(filename), comm_sz, array_size, type_string, rulepath) == -1) {
     fprintf(stderr, "Error: Failed to create the filename.\n");
     MPI_Abort(comm, 1);
   }
 
-  const char *dirpath = argv[4];
+  const char *dirpath = argv[5];
   char fullpath[MAX_PATH_LENGTH];
   if (concatenate_path(dirpath, filename, fullpath) == -1) {
     fprintf(stderr, "Error: Failed to create fullpath.\n");

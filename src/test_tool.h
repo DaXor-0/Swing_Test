@@ -22,7 +22,7 @@ int are_equal(const void *buf_1, const void *buf_2, size_t len);
 
 int get_alg_number(const char *filename, int *alg_number);
 
-int create_filename(char *filename, size_t fn_size, int comm_sz, size_t array_size, const char *type_string);
+int create_filename(char *filename, size_t fn_size, int comm_sz, size_t array_size, const char *type_string, const char* rulepath);
 
 int concatenate_path(const char *dirpath, const char *filename, char *fullpath);
 
