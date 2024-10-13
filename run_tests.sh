@@ -21,8 +21,10 @@ if [ $location == 'leonardo' ]; then
     export "OMPI_MCA_coll_hcoll_enable=0"
     export "UCX_IB_SL=1"
     
-    MPIRUN=srun
+    RUN=srun
     RULE_FILE_ABS_PATH=/leonardo/home/userexternal/spasqual/Swing_Test/collective_rules.txt
+    TEST_EXEC=./Swing_Test/out
+    RULE_UPDATER_EXEC=./Swing_Test/update_collective_rules
 elif [ $location == 'local' ]; then
     export PATH=/opt/ompi_test/bin:$PATH
     export LD_LIBRARY_PATH=/opt/ompi_test/lib:$LD_LIBRARY_PATH
@@ -30,8 +32,10 @@ elif [ $location == 'local' ]; then
     
     export "OMPI_MCA_coll_hcoll_enable=0"
     
-    MPIRUN=mpirun
+    RUN=mpiexec
     RULE_FILE_ABS_PATH=/home/saverio/University/Tesi/test/collective_rules.txt
+    TEST_EXEC=./out
+    RULE_UPDATER_EXEC=./update_collective_rules
 else
     echo "ERROR: location not correctly set up, aborting..."
     exit 1
@@ -39,8 +43,6 @@ fi
 
 
 
-TEST_EXEC=./out
-RULE_UPDATER_EXEC=./update_collective_rules
 RULE_FILE_PATH=./collective_rules.txt
 RES_DIR=./results/
 TIMESTAMP=$(date +"%Y_%m_%d___%H:%M:%S")
@@ -74,7 +76,7 @@ run_test() {
     local algo_name=$4  # "BASELINE" or the algorithm number
 
     echo "Running with $n processes and array size $size (Algo: $algo_name)"
-    $MPIRUN -np $n $TEST_EXEC $size $iter $TYPE $OUTPUT_DIR
+    $MPIRUN -n $n $TEST_EXEC $size $iter $TYPE $OUTPUT_DIR
 }
 
 
