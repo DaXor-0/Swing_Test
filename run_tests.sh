@@ -19,8 +19,11 @@ if [ $location == 'leonardo' ]; then
 
     export "OMPI_MCA_coll_hcoll_enable=0"
     export "UCX_IB_SL=1"
+    
     export CUDA_VISIBLE_DEVICES=""
-
+    export OMPI_MCA_btl="^smcuda"
+    export OMPI_MCA_mpi_cuda_support=0
+    
     RUN=srun
     TEST_EXEC=/leonardo/home/userexternal/spasqual/Swing_Test/out
     RULE_UPDATER_EXEC=/leonardo/home/userexternal/spasqual/Swing_Test/update_collective_rules
