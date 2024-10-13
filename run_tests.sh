@@ -46,7 +46,7 @@ RES_DIR=./results/
 TIMESTAMP=$(date +"%Y_%m_%d___%H:%M:%S")
 OUTPUT_DIR="$RES_DIR/$TIMESTAMP/"
 
-N_PROC=(2 4 8 16 32 64) # 128 256 512 1024 2048 4096 8192 16384)
+N_PROC=(2 4 8 16 32 64 128) # 256 512 1024 2048 4096 8192 16384)
 ARR_SIZES=(8 64 512 2048 16384 131072 1048576) # 8388608 67108864 536870912)
 TYPE=int
 
@@ -74,7 +74,7 @@ run_test() {
     local algo=$4  # "BASELINE" or the algorithm number
 
     echo "Running with $n processes and array size $size (Algo: $algo)"
-    $RUN -n $n $TEST_EXEC $size $iter $TYPE $RULE_FILE_PATH $OUTPUT_DIR
+    $RUN --mca btl ^smcuda -n $n $TEST_EXEC $size $iter $TYPE $RULE_FILE_PATH $OUTPUT_DIR
 }
 
 
