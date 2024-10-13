@@ -13,9 +13,9 @@ location='local'
 # location='leonardo'
 
 if [ $location == 'leonardo' ]; then
-    export PATH=/leonardo/home/userexternal/spasqual/bin:$PATH
-    export LD_LIBRARY_PATH=/leonardo/home/userexternal/spasqual/lib:$LD_LIBRARY_PATH
-    export MANPATH=/leonardo/home/userexternal/spasqual/share/man:$MANPATH
+    export PATH=/leonardo/home/userexternal/spasqual/mympi/bin:$PATH
+    export LD_LIBRARY_PATH=/leonardo/home/userexternal/spasqual/mympi/lib:$LD_LIBRARY_PATH
+    export MANPATH=/leonardo/home/userexternal/spasqual/mympi/share/man:$MANPATH
 
     export "OMPI_MCA_coll_hcoll_enable=0"
     export "UCX_IB_SL=1"
