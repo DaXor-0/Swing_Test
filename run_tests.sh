@@ -9,8 +9,8 @@ cleanup() {
 trap cleanup SIGINT
 
 # Setup for local tests or for leonardo tests
-location='local'
-# location='leonardo'
+# location='local'
+location='leonardo'
 
 if [ $location == 'leonardo' ]; then
     export PATH=/leonardo/home/userexternal/spasqual/mympi/bin:$PATH
@@ -19,6 +19,7 @@ if [ $location == 'leonardo' ]; then
 
     export "OMPI_MCA_coll_hcoll_enable=0"
     export "UCX_IB_SL=1"
+    export CUDA_VISIBLE_DEVICES=""
 
     RUN=srun
     TEST_EXEC=/leonardo/home/userexternal/spasqual/Swing_Test/out
@@ -45,8 +46,8 @@ RES_DIR=./results/
 TIMESTAMP=$(date +"%Y_%m_%d___%H:%M:%S")
 OUTPUT_DIR="$RES_DIR/$TIMESTAMP/"
 
-N_PROC=(2 4 8) # 16 32 64 128 256 512 1024 2048 4096 8192 16384)
-ARR_SIZES=(8) # 64 512 2048 16384 131072 1048576 8388608 67108864 536870912)
+N_PROC=(4 8 16 32 64) # 128 256 512 1024 2048 4096 8192 16384)
+ARR_SIZES=(8 64 512 2048 16384 131072 1048576) # 8388608 67108864 536870912)
 TYPE=int
 
 
