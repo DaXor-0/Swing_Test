@@ -13,9 +13,9 @@ trap cleanup SIGINT
 location='leonardo'
 
 if [ $location == 'leonardo' ]; then
-    export PATH=/leonardo/home/userexternal/spasqual/mympi/bin:$PATH
-    export LD_LIBRARY_PATH=/leonardo/home/userexternal/spasqual/mympi/lib:$LD_LIBRARY_PATH
-    export MANPATH=/leonardo/home/userexternal/spasqual/mympi/share/man:$MANPATH
+    export PATH=/leonardo/home/userexternal/spasqual/bin:$PATH
+    export LD_LIBRARY_PATH=/leonardo/home/userexternal/spasqual/lib:$LD_LIBRARY_PATH
+    export MANPATH=/leonardo/home/userexternal/spasqual/share/man:$MANPATH
 
     export "OMPI_MCA_coll_hcoll_enable=0"
     export "UCX_IB_SL=1"
@@ -49,8 +49,8 @@ RES_DIR=./results/
 TIMESTAMP=$(date +"%Y_%m_%d___%H:%M:%S")
 OUTPUT_DIR="$RES_DIR/$TIMESTAMP/"
 
-N_PROC=(2 4 8 16 32 64 128) # 256 512 1024 2048 4096 8192 16384)
-ARR_SIZES=(8 64 512 2048 16384 131072 1048576) # 8388608 67108864 536870912)
+N_PROC=(2 4 8 16 32 64 128 256 512 1024 2048 4096 8192) # 16384)
+ARR_SIZES=(8 64 512 2048 16384 131072 1048576 8388608 67108864 536870912)
 TYPE=int
 
 
@@ -65,7 +65,7 @@ get_iterations() {
     elif [ $size -le 67108864 ]; then
         echo 10
     else
-        echo 4
+        echo 5
     fi
 }
 
@@ -74,10 +74,10 @@ run_test() {
     local n=$1
     local size=$2
     local iter=$3
-    local algo=$4  # "BASELINE" or the algorithm number
+    local algo=$4
 
     echo "Running with $n processes and array size $size (Algo: $algo)"
-    $RUN --mca btl ^smcuda -n $n $TEST_EXEC $size $iter $TYPE $RULE_FILE_PATH $OUTPUT_DIR
+    $RUN -n $n $TEST_EXEC $size $iter $TYPE $RULE_FILE_PATH $OUTPUT_DIR
 }
 
 
@@ -111,7 +111,7 @@ done
 # - number of mpi processes
 # - size of the array in number of elements (of type = TYPE) 
 export "OMPI_MCA_coll_tuned_use_dynamic_rules=1"
-for algo in $(seq 8 12); do
+for algo in $(seq 1 12); do
     $RULE_UPDATER_EXEC $RULE_FILE_PATH $algo
     export "OMPI_MCA_coll_tuned_dynamic_rules_filename=${RULE_FILE_PATH}"
 
