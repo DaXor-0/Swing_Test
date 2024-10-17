@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <math.h>
 
 #include "test_tool.h"
 
@@ -75,74 +76,40 @@ int rand_array_generator(void *target, const char *type_string, size_t array_siz
 }
 
 
-// Check if buffers are equal up to len
-// NOTE: LEN IS IN NUMBER OF BYTES
-int are_equal(const void *buf_1, const void *buf_2, size_t len){
-  if (len == 0) return 0;
-
-  char *b1 = (char *) buf_1;
-  char *b2 = (char *) buf_2;
-
+// Check if buffers are equal
+// NOTE: for float and double that needs an uncertanty due to floating point arithmetic
+int are_equal_eps(const void *buf_1, const void *buf_2, size_t array_size, const char *type_string, int comm_sz){
+  if (array_size == 0) return 0;
+  
   size_t i;
-  for (i = 0; i < len; i++){
-    if (b1[i] != b2[i]){
-      return -1;
-    }
-  }
-  return 0;
-}
 
-// Get algorithm number from file "collective_rules.txt" to format output file
-int get_alg_number(const char *filename, int *alg_number) {
-  FILE *file = fopen(filename, "r");
-  if (file == NULL) {
-    fprintf(stderr, "Failed to open file %s\n", filename);
-    return -1;
-  }
-
-  char line[256];
-  int line_number = 1;
-
-  while (fgets(line, sizeof(line), file)) {
-    if (line_number == 6) {
-      if (sscanf(line, "%*d %d", alg_number) != 1) {
-        fprintf(stderr, "Failed to read algorithm number from line 6.\n");
-        fclose(file);
-        return -1;  // Return -1 if reading fails
-      }
-    break;
-    }
-  line_number++;
-  }
-
-  fclose(file);
-
-  return 0;
-}
-
-
-int create_filename(char *filename, size_t fn_size, int comm_sz, size_t array_size, const char *type_string, const char *rulepath){
-  char *dynamic_rules = getenv("OMPI_MCA_coll_tuned_use_dynamic_rules");
-  if (dynamic_rules == NULL){
-    fprintf(stderr, "Failed to retrieve dynamic_rules env var.\n");
-    return -1;
-  }
-
-  // If I'm selectiong an algorithm, the filename starts with the number of the algorithm, otherwise 0
-  if (strcmp(dynamic_rules, "1") == 0){
-    int alg_number;
-    if (get_alg_number(rulepath, &alg_number) == -1){
-      fprintf(stderr, "Failed to retrieve algorithm number.\n");
-      return -1;
-    }
+  if (strcmp(type_string, "float") == 0) {
+    float *b1 = (float *) buf_1;
+    float *b2 = (float *) buf_2;
     
-    snprintf(filename, fn_size, "%d_%ld_%s_%d.csv", comm_sz, array_size, type_string, alg_number);
+    float epsilon = comm_sz * BASE_EPSILON_FLOAT * 100.0f;
+
+    for (i = 0; i < array_size; i++){
+      if (fabs(b1[i] - b2[i]) > epsilon) {
+        return -1;
+      }
+    }
+  } else if (strcmp(type_string, "double") == 0) {
+    double *b1 = (double *) buf_1;
+    double *b2 = (double *) buf_2;
+    
+    double epsilon = comm_sz * BASE_EPSILON_DOUBLE * 100.0;
+    
+    for (i = 0; i < array_size; i++){
+      if (fabs(b1[i] - b2[i]) > epsilon) {
+        return -1;
+      }
+    }
   }
-  else{
-    snprintf(filename, fn_size, "%d_%ld_%s_0.csv", comm_sz, array_size, type_string);
-  }
+
   return 0;
 }
+
 
 
 int concatenate_path(const char *dirpath, const char *filename, char *fullpath){
@@ -175,3 +142,4 @@ int concatenate_path(const char *dirpath, const char *filename, char *fullpath){
 
   return 0;
 }
+

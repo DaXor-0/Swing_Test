@@ -1,6 +1,7 @@
-obj/
-unused/
-results/
 out
 update_collective_rules
-*.txt
+*.csv
+*.o
+
+compile_commands.json
+.cache

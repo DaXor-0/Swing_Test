@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 
 #include "test_tool.h"
 
@@ -13,7 +14,7 @@ int main(int argc, char *argv[]) {
   // Error checking for command-line arguments
   if (argc < 6) {
     if (rank == 0) {
-      fprintf(stderr, "Usage: %s <array_size> <iterations> <dtype> <rulepath> <dirpath>\n", argv[0]);
+      fprintf(stderr, "Usage: %s <array_size> <iterations> <dtype> <algo> <dirpath>\n", argv[0]);
     }
     MPI_Abort(comm, 1);
   }
@@ -80,11 +81,20 @@ int main(int argc, char *argv[]) {
   // Do a ground-truth check on the correctness of last iteration result
   MPI_Reduce(sendbuf, recvbuf_gt, array_size, dtype, MPI_SUM, 0, comm);
   MPI_Bcast(recvbuf_gt, array_size, dtype, 0, comm);
-  if (are_equal(recvbuf, recvbuf_gt, array_size * type_size) == -1){
-    if (rank == 0){
-      fprintf(stderr, "Error: results are not valid. Aborting...\n");
+  if(dtype != MPI_DOUBLE && dtype != MPI_FLOAT){
+    if (memcmp(recvbuf, recvbuf_gt, array_size * type_size) != 0){
+      if (rank == 0){
+        fprintf(stderr, "Error: results are not valid. Aborting...\n");
+      }
+      MPI_Abort(comm, 1);
     }
-    MPI_Abort(comm, 1);
+  } else{
+    if (are_equal_eps(recvbuf_gt, recvbuf, array_size, type_string, comm_sz) == -1){
+      if (rank == 0){
+        fprintf(stderr, "Error: results are not valid. Aborting...\n");
+      }
+      MPI_Abort(comm, 1);
+    }
   }
 
   // Gather all process times to rank 0
@@ -102,11 +112,8 @@ int main(int argc, char *argv[]) {
   MPI_Reduce(times, highest, iter, MPI_DOUBLE, MPI_MAX, 0, comm);
 
   char filename[256];
-  const char *rulepath = argv[4];
-  if (create_filename(filename, sizeof(filename), comm_sz, array_size, type_string, rulepath) == -1) {
-    fprintf(stderr, "Error: Failed to create the filename.\n");
-    MPI_Abort(comm, 1);
-  }
+  int alg_number = atoi(argv[4]);
+  snprintf(filename, sizeof(filename), "%d_%ld_%s_%d.csv", comm_sz, array_size, type_string, alg_number);
 
   const char *dirpath = argv[5];
   char fullpath[MAX_PATH_LENGTH];

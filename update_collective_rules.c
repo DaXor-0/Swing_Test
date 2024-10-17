@@ -6,8 +6,8 @@
 
 int update_file(const char *filename, int new_value) {
   // Validate the new value
-  if (new_value < 1 || new_value > 12) {
-    fprintf(stderr, "Error: The number must be between 1 and 12.\n");
+  if (new_value < 0 || new_value > 12) {
+    fprintf(stderr, "Error: The number must be between 0 and 12.\n");
     return -1;
   }
 
@@ -47,7 +47,7 @@ int update_file(const char *filename, int new_value) {
 
 int main(int argc, char *argv[]) {
   if (argc != 3) {
-    fprintf(stderr, "Usage: %s <filename> <number between 1 and 12>\n", argv[0]);
+    fprintf(stderr, "Usage: %s <filename> <number between 0 and 12>\n", argv[0]);
     return EXIT_FAILURE;
   }
 

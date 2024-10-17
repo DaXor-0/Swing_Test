@@ -9,50 +9,59 @@ cleanup() {
 trap cleanup SIGINT
 
 # Setup for local tests or for leonardo tests
-# location='local'
-location='leonardo'
+location='local'
+# location='leonardo'
+debug=yes
+#debug=no
+
 
 if [ $location == 'leonardo' ]; then
     export PATH=/leonardo/home/userexternal/spasqual/bin:$PATH
     export LD_LIBRARY_PATH=/leonardo/home/userexternal/spasqual/lib:$LD_LIBRARY_PATH
     export MANPATH=/leonardo/home/userexternal/spasqual/share/man:$MANPATH
 
-    export "OMPI_MCA_coll_hcoll_enable=0"
-    export "UCX_IB_SL=1"
-    
+    export UCX_IB_SL=1
     export CUDA_VISIBLE_DEVICES=""
     export OMPI_MCA_btl="^smcuda"
     export OMPI_MCA_mpi_cuda_support=0
-    
+
     RUN=srun
+    RES_DIR=./results/
     TEST_EXEC=/leonardo/home/userexternal/spasqual/Swing_Test/out
-    RULE_UPDATER_EXEC=/leonardo/home/userexternal/spasqual/Swing_Test/update_collective_rules
-    RULE_FILE_PATH=/leonardo/home/userexternal/spasqual/Swing_Test/collective_rules.txt
+    DEBUG_EXEC=/leonardo/home/userexternal/spasqual/Swing_Test/debug
+    RULE_UPDATER_SCRIPT=/leonardo/home/userexternal/spasqual/Swing_Test/change_collective.sh
+    
+    ALGOS=(0 1 2 3 4 5 6 7 8 9 10 11 12)
+    N_PROC=(2 4 8 16 32 64 128 256 512 1024 2048) # 4096 8192 16384)
+    ARR_SIZES=(8 64 512 2048 16384 131072 1048576 8388608 67108864) # 536870912)
+    TYPES=('int32' 'int64' 'float' 'double') # 'char' 'int8' 'int16')
 elif [ $location == 'local' ]; then
-    export PATH=/opt/ompi_test/bin:$PATH
-    export LD_LIBRARY_PATH=/opt/ompi_test/lib:$LD_LIBRARY_PATH
-    export MANPATH=/opt/ompi_test/share/man:$MANPATH
-    
-    export "OMPI_MCA_coll_hcoll_enable=0"
-    
+    # sets PATH, LD_LIBRARY_PATH and MANPATH
+    source ~/use_ompi.sh
+
     RUN=mpiexec
+    RES_DIR=./local_results/
     TEST_EXEC=./out
-    RULE_UPDATER_EXEC=./update_collective_rules
-    RULE_FILE_PATH=/home/saverio/University/Tesi/test/collective_rules.txt
+    DEBUG_EXEC=./debug
+    RULE_UPDATER_SCRIPT=./change_collective.sh
+
+    ALGOS=(0 8 9 10 11 12)
+    N_PROC=(8)
+    ARR_SIZES=(16384)
+    TYPES=('int32' 'int64')
+    # no problems with int, int32, int64, float, double
+    # problems with char, int8, int16
 else
     echo "ERROR: location not correctly set up, aborting..."
     exit 1
 fi
 
 
-RES_DIR=./results/
+export OMPI_MCA_coll_hcoll_enable=0
+export OMPI_MCA_coll_tuned_use_dynamic_rules=1
+chmod +x $RULE_UPDATER_SCRIPT
 TIMESTAMP=$(date +"%Y_%m_%d___%H:%M:%S")
 OUTPUT_DIR="$RES_DIR/$TIMESTAMP/"
-
-N_PROC=(2 4 8 16 32 64 128 256 512 1024 2048 4096 8192) # 16384)
-ARR_SIZES=(8 64 512 2048 16384 131072 1048576 8388608 67108864 536870912)
-TYPE=int
-
 
 get_iterations() {
     size=$1
@@ -74,32 +83,17 @@ run_test() {
     local n=$1
     local size=$2
     local iter=$3
-    local algo=$4
-
-    echo "Running with $n processes and array size $size (Algo: $algo)"
-    $RUN -n $n $TEST_EXEC $size $iter $TYPE $RULE_FILE_PATH $OUTPUT_DIR
+    local type=$4
+    local algo=$5
+    
+    echo "Running -> $n processes, $size array size, $type datatype (Algo: $algo)"
+    $RUN -n $n $TEST_EXEC $size $iter $type $algo $OUTPUT_DIR
 }
 
-
-mkdir -p "$RES_DIR"
-mkdir -p "$OUTPUT_DIR"
-
-
-# Test mpi baseline, loop through:
-# - number of mpi processes
-# - size of the array in number of elements (of type = TYPE) 
-export "OMPI_MCA_coll_tuned_use_dynamic_rules=0"
-for n in "${N_PROC[@]}"; do
-    for size in "${ARR_SIZES[@]}"; do
-        if (( size < n )); then
-            echo "Skipping: array size $size <= number of processes $n (BASELINE)"
-            continue
-        fi
-        iter=$(get_iterations $size)
-        run_test $n $size $iter "BASELINE"
-    done
-done
-
+if [ $debug == 'no' ]; then
+    mkdir -p "$RES_DIR"
+    mkdir -p "$OUTPUT_DIR"
+fi
 
 # Test custom algorithms here, loop through:
 # - algorithms:
@@ -110,20 +104,25 @@ done
 #     - 12 swing bandwidt segmented
 # - number of mpi processes
 # - size of the array in number of elements (of type = TYPE) 
-export "OMPI_MCA_coll_tuned_use_dynamic_rules=1"
-for algo in $(seq 1 12); do
-    $RULE_UPDATER_EXEC $RULE_FILE_PATH $algo
-    export "OMPI_MCA_coll_tuned_dynamic_rules_filename=${RULE_FILE_PATH}"
+for algo in ${ALGOS[@]}; do   
+    $RULE_UPDATER_SCRIPT $location $algo
 
     for n in "${N_PROC[@]}"; do
         for size in "${ARR_SIZES[@]}"; do
             if (( size < n )); then
-                echo "Skipping: array size $size <= number of processes $n (Algo: $algo)"
+                echo "Skipping -> $n processes, $size array size (Algo: $algo)"
                 continue
             fi
 
-            iter=$(get_iterations $size)
-            run_test $n $size $iter $algo
+            if [ $debug == 'yes' ]; then
+                echo "Debugging -> Algo $algo, $n processes, $size array size"
+                $RUN -n $n $DEBUG_EXEC $size
+            else
+                iter=$(get_iterations $size)
+                for type in "${TYPES[@]}"; do
+                    run_test $n $size $iter $type $algo
+                done
+            fi
         done
     done
 done
