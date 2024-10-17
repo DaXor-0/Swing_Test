@@ -1,9 +1,12 @@
 #!/bin/bash
 
-if [ $1 == 'leonardo' ]; then
+location='local'
+# location='leonardo'
+
+if [ $location == 'leonardo' ]; then
     RULE_UPDATER_EXEC=/leonardo/home/userexternal/spasqual/Swing_Test/update_collective_rules
     RULE_FILE_PATH=/leonardo/home/userexternal/spasqual/Swing_Test/collective_rules.txt
-elif [ $1 == 'local' ]; then
+elif [ $location == 'local' ]; then
     RULE_UPDATER_EXEC=./update_collective_rules
     RULE_FILE_PATH=/home/saverio/University/Tesi/test/collective_rules.txt
 else
@@ -12,6 +15,7 @@ else
 fi
 
 
-$RULE_UPDATER_EXEC $RULE_FILE_PATH $2
+$RULE_UPDATER_EXEC $RULE_FILE_PATH $1
 
+export OMPI_MCA_coll_tuned_use_dynamic_rules=1
 export OMPI_MCA_coll_tuned_dynamic_rules_filename=${RULE_FILE_PATH}

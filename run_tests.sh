@@ -10,12 +10,20 @@ trap cleanup SIGINT
 
 nnodes=$1
 
-# Setup for local tests or for leonardo tests
 # location='local'
 location='leonardo'
+
 # debug=yes
 debug=no
 
+ALGOS=(0 1 2 3 4 5 6 7 8 9 10 11 12)
+ARR_SIZES=(8 64 512 2048 16384 131072 1048576 8388608 67108864) # 536870912)
+TYPES=('int32' 'int64' 'float' 'double') # 'char' 'int8' 'int16')
+# NOTE: problems with char, int8, int16
+
+# ALGOS=(0 8 9 10 11 12)
+# ARR_SIZES=(8 64 512)
+# TYPES=('int32' 'int64')
 
 if [ $location == 'leonardo' ]; then
     export PATH=/leonardo/home/userexternal/spasqual/bin:$PATH
@@ -31,7 +39,8 @@ if [ $location == 'leonardo' ]; then
     RES_DIR=./results/
     TEST_EXEC=/leonardo/home/userexternal/spasqual/Swing_Test/out
     DEBUG_EXEC=/leonardo/home/userexternal/spasqual/Swing_Test/debug
-    RULE_UPDATER_SCRIPT=/leonardo/home/userexternal/spasqual/Swing_Test/change_collective.sh
+    RULE_UPDATER_EXEC=/leonardo/home/userexternal/spasqual/Swing_Test/update_collective_rules
+    RULE_FILE_PATH=/leonardo/home/userexternal/spasqual/Swing_Test/collective_rules.txt
 elif [ $location == 'local' ]; then
     # sets PATH, LD_LIBRARY_PATH and MANPATH
     source ~/use_ompi.sh
@@ -40,21 +49,17 @@ elif [ $location == 'local' ]; then
     RES_DIR=./local_results/
     TEST_EXEC=./out
     DEBUG_EXEC=./debug
-    RULE_UPDATER_SCRIPT=./change_collective.sh
+    RULE_UPDATER_EXEC=./update_collective_rules
+    RULE_FILE_PATH=/home/saverio/University/Tesi/test/collective_rules.txt
 else
     echo "ERROR: location not correctly set up, aborting..."
     exit 1
 fi
 
-ALGOS=(0 1 2 3 4 5 6 7 8 9 10 11 12)
-ARR_SIZES=(8 64 512 2048 16384 131072 1048576 8388608 67108864) # 536870912)
-TYPES=('int32' 'int64' 'float' 'double') # 'char' 'int8' 'int16')
-# no problems with int, int32, int64, float, double
-# problems with char, int8, int16
+
 
 export OMPI_MCA_coll_hcoll_enable=0
 export OMPI_MCA_coll_tuned_use_dynamic_rules=1
-chmod +x $RULE_UPDATER_SCRIPT
 TIMESTAMP=$(date +"%Y_%m_%d___%H:%M:%S")
 OUTPUT_DIR="$RES_DIR/$TIMESTAMP/"
 
@@ -67,7 +72,7 @@ get_iterations() {
     elif [ $size -le 8388608 ]; then
         echo 100
     elif [ $size -le 67108864 ]; then
-        echo 10
+        echo 15
     else
         echo 5
     fi
@@ -99,7 +104,8 @@ fi
 # - number of mpi processes
 # - size of the array in number of elements (of type = TYPE) 
 for algo in ${ALGOS[@]}; do   
-    $RULE_UPDATER_SCRIPT $location $algo
+    $RULE_UPDATER_EXEC $RULE_FILE_PATH $algo
+    export OMPI_MCA_coll_tuned_dynamic_rules_filename=${RULE_FILE_PATH}
     for size in "${ARR_SIZES[@]}"; do
         if (( size < nnodes )); then
             echo "Skipping -> $nnodes processes, $size array size (Algo: $algo)"
