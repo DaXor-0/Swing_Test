@@ -13,8 +13,8 @@ nnodes=$1
 # Setup for local tests or for leonardo tests
 # location='local'
 location='leonardo'
-debug=yes
-# debug=no
+# debug=yes
+debug=no
 
 
 if [ $location == 'leonardo' ]; then
@@ -32,10 +32,6 @@ if [ $location == 'leonardo' ]; then
     TEST_EXEC=/leonardo/home/userexternal/spasqual/Swing_Test/out
     DEBUG_EXEC=/leonardo/home/userexternal/spasqual/Swing_Test/debug
     RULE_UPDATER_SCRIPT=/leonardo/home/userexternal/spasqual/Swing_Test/change_collective.sh
-    
-    ALGOS=(0 1 2 3 4 5 6 7 8 9 10 11 12)
-    ARR_SIZES=(8 64 512 2048 16384 131072 1048576 8388608 67108864) # 536870912)
-    TYPES=('int32' 'int64' 'float' 'double') # 'char' 'int8' 'int16')
 elif [ $location == 'local' ]; then
     # sets PATH, LD_LIBRARY_PATH and MANPATH
     source ~/use_ompi.sh
@@ -45,17 +41,16 @@ elif [ $location == 'local' ]; then
     TEST_EXEC=./out
     DEBUG_EXEC=./debug
     RULE_UPDATER_SCRIPT=./change_collective.sh
-
-    ALGOS=(0 8 9 10 11 12)
-    ARR_SIZES=(16384)
-    TYPES=('int32' 'int64')
-    # no problems with int, int32, int64, float, double
-    # problems with char, int8, int16
 else
     echo "ERROR: location not correctly set up, aborting..."
     exit 1
 fi
 
+ALGOS=(0 1 2 3 4 5 6 7 8 9 10 11 12)
+ARR_SIZES=(8 64 512 2048 16384 131072 1048576 8388608 67108864) # 536870912)
+TYPES=('int32' 'int64' 'float' 'double') # 'char' 'int8' 'int16')
+# no problems with int, int32, int64, float, double
+# problems with char, int8, int16
 
 export OMPI_MCA_coll_hcoll_enable=0
 export OMPI_MCA_coll_tuned_use_dynamic_rules=1
