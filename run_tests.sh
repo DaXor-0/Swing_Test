@@ -8,11 +8,13 @@ cleanup() {
 
 trap cleanup SIGINT
 
+nnodes=$1
+
 # Setup for local tests or for leonardo tests
-location='local'
-# location='leonardo'
+# location='local'
+location='leonardo'
 debug=yes
-#debug=no
+# debug=no
 
 
 if [ $location == 'leonardo' ]; then
@@ -32,7 +34,6 @@ if [ $location == 'leonardo' ]; then
     RULE_UPDATER_SCRIPT=/leonardo/home/userexternal/spasqual/Swing_Test/change_collective.sh
     
     ALGOS=(0 1 2 3 4 5 6 7 8 9 10 11 12)
-    N_PROC=(2 4 8 16 32 64 128 256 512 1024 2048) # 4096 8192 16384)
     ARR_SIZES=(8 64 512 2048 16384 131072 1048576 8388608 67108864) # 536870912)
     TYPES=('int32' 'int64' 'float' 'double') # 'char' 'int8' 'int16')
 elif [ $location == 'local' ]; then
@@ -46,7 +47,6 @@ elif [ $location == 'local' ]; then
     RULE_UPDATER_SCRIPT=./change_collective.sh
 
     ALGOS=(0 8 9 10 11 12)
-    N_PROC=(8)
     ARR_SIZES=(16384)
     TYPES=('int32' 'int64')
     # no problems with int, int32, int64, float, double
@@ -80,14 +80,13 @@ get_iterations() {
 
 
 run_test() {
-    local n=$1
-    local size=$2
-    local iter=$3
-    local type=$4
-    local algo=$5
+    local size=$1
+    local iter=$2
+    local type=$3
+    local algo=$4
     
-    echo "Running -> $n processes, $size array size, $type datatype (Algo: $algo)"
-    $RUN -n $n $TEST_EXEC $size $iter $type $algo $OUTPUT_DIR
+    echo "Running -> $nnodes processes, $size array size, $type datatype (Algo: $algo)"
+    $RUN -n $nnodes $TEST_EXEC $size $iter $type $algo $OUTPUT_DIR
 }
 
 if [ $debug == 'no' ]; then
@@ -106,23 +105,20 @@ fi
 # - size of the array in number of elements (of type = TYPE) 
 for algo in ${ALGOS[@]}; do   
     $RULE_UPDATER_SCRIPT $location $algo
+    for size in "${ARR_SIZES[@]}"; do
+        if (( size < nnodes )); then
+            echo "Skipping -> $nnodes processes, $size array size (Algo: $algo)"
+            continue
+        fi
 
-    for n in "${N_PROC[@]}"; do
-        for size in "${ARR_SIZES[@]}"; do
-            if (( size < n )); then
-                echo "Skipping -> $n processes, $size array size (Algo: $algo)"
-                continue
-            fi
-
-            if [ $debug == 'yes' ]; then
-                echo "Debugging -> Algo $algo, $n processes, $size array size"
-                $RUN -n $n $DEBUG_EXEC $size
-            else
-                iter=$(get_iterations $size)
-                for type in "${TYPES[@]}"; do
-                    run_test $n $size $iter $type $algo
-                done
-            fi
-        done
+        if [ $debug == 'yes' ]; then
+            echo "Debugging -> Algo $algo, $nnodes processes, $size array size"
+            $RUN -n $nnodes $DEBUG_EXEC $size
+        else
+            iter=$(get_iterations $size)
+            for type in "${TYPES[@]}"; do
+                run_test $size $iter $type $algo
+            done
+        fi
     done
 done
