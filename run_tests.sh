@@ -85,6 +85,7 @@ run_test() {
     local type=$3
     local algo=$4
     
+    # BUG: nnodes from here can create problems with the scope
     echo "Running -> $nnodes processes, $size array size, $type datatype (Algo: $algo)"
     $RUN -n $nnodes $TEST_EXEC $size $iter $type $algo $OUTPUT_DIR
 }
