@@ -1,5 +1,6 @@
 out
 update_collective_rules
+debug
 *.csv
 *.o
 

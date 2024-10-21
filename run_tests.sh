@@ -16,12 +16,12 @@ location='leonardo'
 # debug=yes
 debug=no
 
-ALGOS=(0 1 2 3 4 5 6 7 8 9 10 11 12)
+ALGOS=(0 1 2 3 4 5 6 7 8 9 10 11 12 13)
 ARR_SIZES=(8 64 512 2048 16384 131072 1048576 8388608 67108864) # 536870912)
 TYPES=('int32' 'int64' 'float' 'double') # 'char' 'int8' 'int16')
 # NOTE: problems with char, int8, int16
 
-# ALGOS=(0 8 9 10 11 12)
+# ALGOS=(0 8 9 10 11 12 13)
 # ARR_SIZES=(8 64 512)
 # TYPES=('int32' 'int64')
 

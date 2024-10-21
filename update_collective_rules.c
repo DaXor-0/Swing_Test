@@ -6,8 +6,8 @@
 
 int update_file(const char *filename, int new_value) {
   // Validate the new value
-  if (new_value < 0 || new_value > 12) {
-    fprintf(stderr, "Error: The number must be between 0 and 12.\n");
+  if (new_value < 0 || new_value > 13) {
+    fprintf(stderr, "Error: The number must be between 0 and 13.\n");
     return -1;
   }
 
@@ -39,7 +39,7 @@ int update_file(const char *filename, int new_value) {
 
   // Move back to the start of the sixth line and overwrite it
   fseek(file, sixth_line_position, SEEK_SET);
-  fprintf(file, "0 %d 0 0  # 8 ->latency optimal   9->rab mcpy   10->rab dt   11->rab single dt   12->rab segmented\n", new_value);
+  fprintf(file, "0 %d 0 0  # 8 ->latency optimal   9->rab mcpy   10->rab dt   11->rab single dt   12->rab segmented   13->rab contiguous\n", new_value);
 
   fclose(file);
   return 0;
@@ -47,7 +47,7 @@ int update_file(const char *filename, int new_value) {
 
 int main(int argc, char *argv[]) {
   if (argc != 3) {
-    fprintf(stderr, "Usage: %s <filename> <number between 0 and 12>\n", argv[0]);
+    fprintf(stderr, "Usage: %s <filename> <number between 0 and 13>\n", argv[0]);
     return EXIT_FAILURE;
   }
 
