@@ -1,0 +1,48 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-g",
+      "-O3",
+      "-Wall",
+      "-pedantic",
+      "-c",
+      "-I/opt/ompi_test/include",
+      "-o",
+      "obj/test.o",
+      "src/test.c"
+    ],
+    "directory": "/home/saverio/University/Tesi/test",
+    "file": "/home/saverio/University/Tesi/test/src/test.c",
+    "output": "/home/saverio/University/Tesi/test/obj/test.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-g",
+      "-O3",
+      "-Wall",
+      "-pedantic",
+      "-c",
+      "-I/opt/ompi_test/include",
+      "-o",
+      "obj/test_tool.o",
+      "src/test_tool.c"
+    ],
+    "directory": "/home/saverio/University/Tesi/test",
+    "file": "/home/saverio/University/Tesi/test/src/test_tool.c",
+    "output": "/home/saverio/University/Tesi/test/obj/test_tool.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-o",
+      "update_collective_rules",
+      "update_collective_rules.c"
+    ],
+    "directory": "/home/saverio/University/Tesi/test",
+    "file": "/home/saverio/University/Tesi/test/update_collective_rules.c",
+    "output": "/home/saverio/University/Tesi/test/update_collective_rules"
+  }
+]
