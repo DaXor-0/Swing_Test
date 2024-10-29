@@ -12,6 +12,9 @@ trap cleanup SIGINT
 # location='local'
 location='leonardo'
 
+# debug='no'
+debug='cuda'
+
 if [ $location == 'leonardo' ]; then
     export PATH=/leonardo/home/userexternal/spasqual/bin:$PATH
     export LD_LIBRARY_PATH=/leonardo/home/userexternal/spasqual/lib:$LD_LIBRARY_PATH
@@ -20,9 +23,11 @@ if [ $location == 'leonardo' ]; then
     export "OMPI_MCA_coll_hcoll_enable=0"
     export "UCX_IB_SL=1"
     
-    export CUDA_VISIBLE_DEVICES=""
-    export OMPI_MCA_btl="^smcuda"
-    export OMPI_MCA_mpi_cuda_support=0
+    if [ $debug != 'cuda' ]; then
+        export CUDA_VISIBLE_DEVICES=""
+        export OMPI_MCA_btl="^smcuda"
+        export OMPI_MCA_mpi_cuda_support=0
+    fi
     
     RUN=srun
     TEST_EXEC=/leonardo/home/userexternal/spasqual/Swing_Test/out
@@ -49,8 +54,14 @@ RES_DIR=./results/
 TIMESTAMP=$(date +"%Y_%m_%d___%H:%M:%S")
 OUTPUT_DIR="$RES_DIR/$TIMESTAMP/"
 
-N_PROC=(2 4 8 16 32 64 128 256 512 1024 2048 4096 8192) # 16384)
-ARR_SIZES=(8 64 512 2048 16384 131072 1048576 8388608 67108864 536870912)
+if [ $debug != 'cuda' ]; then
+    N_PROC=(2 4 8 16 32 64 128 256 512 1024 2048 4096 8192) # 16384)
+    ARR_SIZES=(8 64 512 2048 16384 131072 1048576 8388608 67108864) #536870912)
+else
+    N_PROC=(2 4)
+    ARR_SIZES=(1048576 8388608)
+fi
+
 TYPE=int
 
 
@@ -76,8 +87,13 @@ run_test() {
     local iter=$3
     local algo=$4
 
-    echo "Running with $n processes and array size $size (Algo: $algo)"
-    $RUN -n $n $TEST_EXEC $size $iter $TYPE $RULE_FILE_PATH $OUTPUT_DIR
+    if [ $debug == 'cuda' ]; then
+        echo "DEBUGGING with $n processes and array size $size (Algo: $algo)"
+        $RUN -n $n nsys profile --trace=mpi,cuda $TEST_EXEC $size $iter $TYPE $RULE_FILE_PATH $OUTPUT_DIR
+    else
+        echo "Running with $n processes and array size $size (Algo: $algo)"
+        $RUN -n $n $TEST_EXEC $size $iter $TYPE $RULE_FILE_PATH $OUTPUT_DIR
+    fi
 }
 
 
@@ -101,6 +117,7 @@ for n in "${N_PROC[@]}"; do
 done
 
 
+if [ $debug != 'cuda' ]; then
 # Test custom algorithms here, loop through:
 # - algorithms:
 #     - 8 swing latency
@@ -110,20 +127,21 @@ done
 #     - 12 swing bandwidt segmented
 # - number of mpi processes
 # - size of the array in number of elements (of type = TYPE) 
-export "OMPI_MCA_coll_tuned_use_dynamic_rules=1"
-for algo in $(seq 1 12); do
-    $RULE_UPDATER_EXEC $RULE_FILE_PATH $algo
-    export "OMPI_MCA_coll_tuned_dynamic_rules_filename=${RULE_FILE_PATH}"
+    export "OMPI_MCA_coll_tuned_use_dynamic_rules=1"
+    for algo in $(seq 1 12); do
+        $RULE_UPDATER_EXEC $RULE_FILE_PATH $algo
+        export "OMPI_MCA_coll_tuned_dynamic_rules_filename=${RULE_FILE_PATH}"
 
-    for n in "${N_PROC[@]}"; do
-        for size in "${ARR_SIZES[@]}"; do
-            if (( size < n )); then
-                echo "Skipping: array size $size <= number of processes $n (Algo: $algo)"
-                continue
-            fi
+        for n in "${N_PROC[@]}"; do
+            for size in "${ARR_SIZES[@]}"; do
+                if (( size < n )); then
+                    echo "Skipping: array size $size <= number of processes $n (Algo: $algo)"
+                    continue
+                fi
 
-            iter=$(get_iterations $size)
-            run_test $n $size $iter $algo
+                iter=$(get_iterations $size)
+                run_test $n $size $iter $algo
+            done
         done
     done
-done
+fi

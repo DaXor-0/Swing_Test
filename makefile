@@ -1,5 +1,5 @@
 MPICC = mpicc
-CFLAGS_MPI = -g -O3 -Wall -pedantic
+CFLAGS_MPI = -O3 -Wall -pedantic
 
 GCC = gcc
 
