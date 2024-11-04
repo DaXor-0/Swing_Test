@@ -1,5 +1,6 @@
 MPICC = mpicc
-CFLAGS_MPI = -g -O3 -Wall -pedantic -lm
+CFLAGS_MPI = -O3 -Wall -lm
+DEBUG_FLAGS = -g
 
 GCC = gcc
 
@@ -27,7 +28,7 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	$(MPICC) $(CFLAGS_MPI) -c $< -o $@
 
 $(DEBUG_EXEC): debug.c
-	$(MPICC) $(CFLAGS_MPI) debug.c -o $(DEBUG_EXEC)
+	$(MPICC) $(DEBUG_FLAGS) $(CFLAGS_MPI) debug.c -o $(DEBUG_EXEC)
 
 # Compile update_collective_rules.c into its own executable with gcc and different flags
 $(RULES_EXEC): update_collective_rules.c
