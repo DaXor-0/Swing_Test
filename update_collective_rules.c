@@ -39,7 +39,7 @@ int update_file(const char *filename, int new_value) {
 
   // Move back to the start of the sixth line and overwrite it
   fseek(file, sixth_line_position, SEEK_SET);
-  fprintf(file, "0 %d 0 0  # 8 ->latency optimal   9->rab mcpy   10->rab dt   11->rab single dt   12->rab segmented   13->rab contiguous\n", new_value);
+  fprintf(file, "0 %d 0 0 # 8 ->latency optimal   9->rab mcpy   10->rab dt   11->rab single dt   12->rab segmented   13->rab contiguous\n", new_value);
 
   fclose(file);
   return 0;
