@@ -8,22 +8,26 @@ cleanup() {
 
 trap cleanup SIGINT
 
-nnodes=$1
+N_NODES=$1
 
 # location='local'
-location='leonardo'
+# location='leonardo'
+location='snellius'
 
 # debug=yes
 debug=no
 
-ALGOS=(0 1 2 3 4 5 6 7 8 9 10 11 12 13)
-ARR_SIZES=(8 64 512 2048 16384 131072 1048576 8388608 67108864) # 536870912)
-TYPES=('int32' 'int64' 'float' 'double') # 'char' 'int8' 'int16')
+# cuda=yes
+cuda=no
+
+ALGOS=(0 8 9 10 11 12 13)
+#ALGOS=(0 1 2 3 4 5 6 7 8 9 10 11 12 13)
+
+ARR_SIZES=(8 64 512 2048 16384 131072 1048576 8388608 67108864)
+TYPES=('int32' )
+# TYPES=('int32' 'int64' 'float' 'double' 'char' 'int8' 'int16')
 # NOTE: problems with char, int8, int16
 
-# ALGOS=(0 8 9 10 11 12 13)
-# ARR_SIZES=(8 64 512)
-# TYPES=('int32' 'int64')
 
 if [ $location == 'leonardo' ]; then
     export PATH=/leonardo/home/userexternal/spasqual/bin:$PATH
@@ -31,9 +35,12 @@ if [ $location == 'leonardo' ]; then
     export MANPATH=/leonardo/home/userexternal/spasqual/share/man:$MANPATH
 
     export UCX_IB_SL=1
-    export CUDA_VISIBLE_DEVICES=""
-    export OMPI_MCA_btl="^smcuda"
-    export OMPI_MCA_mpi_cuda_support=0
+    
+    if [ $cuda == 'no' ]; then
+      export CUDA_VISIBLE_DEVICES=""
+      export OMPI_MCA_btl="^smcuda"
+      export OMPI_MCA_mpi_cuda_support=0
+    fi
 
     RUN=srun
     RES_DIR=./results/
@@ -41,6 +48,23 @@ if [ $location == 'leonardo' ]; then
     DEBUG_EXEC=/leonardo/home/userexternal/spasqual/Swing_Test/debug
     RULE_UPDATER_EXEC=/leonardo/home/userexternal/spasqual/Swing_Test/update_collective_rules
     RULE_FILE_PATH=/leonardo/home/userexternal/spasqual/Swing_Test/collective_rules.txt
+elif [ $location == 'snellius' ]; then
+    export PATH=/home/spasqualoni/bin:$PATH
+    export LD_LIBRARY_PATH=/home/spasqualoni/lib:$LD_LIBRARY_PATH
+    export MANPATH=/home/spasqualoni/share/man:$MANPATH
+
+    if [ $cuda == 'no' ]; then
+      export CUDA_VISIBLE_DEVICES=""
+      export OMPI_MCA_btl="^smcuda"
+      export OMPI_MCA_mpi_cuda_support=0
+    fi
+
+    RUN=srun
+    RES_DIR=./results/
+    TEST_EXEC=/home/spasqualoni/Swing_Test/out
+    DEBUG_EXEC=/home/spasqualoni/Swing_Test/debug
+    RULE_UPDATER_EXEC=/home/spasqualoni/Swing_Test/update_collective_rules
+    RULE_FILE_PATH=/home/spasqualoni/Swing_Test/collective_rules.txt
 elif [ $location == 'local' ]; then
     # sets PATH, LD_LIBRARY_PATH and MANPATH
     source ~/use_ompi.sh
@@ -86,8 +110,9 @@ run_test() {
     local algo=$4
     
     # BUG: nnodes from here can create problems with the scope
-    echo "Running -> $nnodes processes, $size array size, $type datatype (Algo: $algo)"
-    $RUN -n $nnodes $TEST_EXEC $size $iter $type $algo $OUTPUT_DIR
+    # WARN: maybe fixed, idk
+    echo "Running -> $N_NODES processes, $size array size, $type datatype (Algo: $algo)"
+    $RUN -n $N_NODES $TEST_EXEC $size $iter $type $algo $OUTPUT_DIR
 }
 
 if [ $debug == 'no' ]; then
@@ -108,14 +133,14 @@ for algo in ${ALGOS[@]}; do
     $RULE_UPDATER_EXEC $RULE_FILE_PATH $algo
     export OMPI_MCA_coll_tuned_dynamic_rules_filename=${RULE_FILE_PATH}
     for size in "${ARR_SIZES[@]}"; do
-        if (( size < nnodes )); then
-            echo "Skipping -> $nnodes processes, $size array size (Algo: $algo)"
+        if (( size < $N_NODES )); then
+            echo "Skipping -> $N_NODES processes, $size array size (Algo: $algo)"
             continue
         fi
 
         if [ $debug == 'yes' ]; then
-            echo "Debugging -> Algo $algo, $nnodes processes, $size array size"
-            $RUN -n $nnodes $DEBUG_EXEC $size
+            echo "Debugging -> Algo $algo, $N_NODES processes, $size array size"
+            $RUN -n $N_NODES $DEBUG_EXEC $size
         else
             iter=$(get_iterations $size)
             for type in "${TYPES[@]}"; do
