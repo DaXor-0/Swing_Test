@@ -14,8 +14,8 @@ N_NODES=$1
 # location='leonardo'
 location='snellius'
 
-# DEBUG=yes
-DEBUG=no
+# debug=yes
+debug=no
 
 # cuda=yes
 cuda=no
