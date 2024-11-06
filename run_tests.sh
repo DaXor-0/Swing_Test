@@ -14,8 +14,8 @@ N_NODES=$1
 # location='leonardo'
 location='snellius'
 
-# debug=yes
-debug=no
+# DEBUG=yes
+DEBUG=no
 
 # cuda=yes
 cuda=no
@@ -30,9 +30,9 @@ TYPES=('int32' )
 
 
 if [ $location == 'leonardo' ]; then
-    export PATH=/leonardo/home/userexternal/spasqual/bin:$PATH
-    export LD_LIBRARY_PATH=/leonardo/home/userexternal/spasqual/lib:$LD_LIBRARY_PATH
-    export MANPATH=/leonardo/home/userexternal/spasqual/share/man:$MANPATH
+    export PATH=$HOME/bin:$PATH
+    export LD_LIBRARY_PATH=$HOME/lib:$LD_LIBRARY_PATH
+    export MANPATH=$HOME/share/man:$MANPATH
 
     export UCX_IB_SL=1
     
@@ -43,15 +43,16 @@ if [ $location == 'leonardo' ]; then
     fi
 
     RUN=srun
+    RUNFLAGS=
     RES_DIR=./results/
-    TEST_EXEC=/leonardo/home/userexternal/spasqual/Swing_Test/out
-    DEBUG_EXEC=/leonardo/home/userexternal/spasqual/Swing_Test/debug
-    RULE_UPDATER_EXEC=/leonardo/home/userexternal/spasqual/Swing_Test/update_collective_rules
-    RULE_FILE_PATH=/leonardo/home/userexternal/spasqual/Swing_Test/collective_rules.txt
+    TEST_EXEC=$HOME/Swing_Test/out
+    DEBUG_EXEC=$HOME/Swing_Test/debug
+    RULE_UPDATER_EXEC=$HOME/Swing_Test/update_collective_rules
+    RULE_FILE_PATH=$HOME/Swing_Test/collective_rules.txt
 elif [ $location == 'snellius' ]; then
-    export PATH=/home/spasqualoni/bin:$PATH
-    export LD_LIBRARY_PATH=/home/spasqualoni/lib:$LD_LIBRARY_PATH
-    export MANPATH=/home/spasqualoni/share/man:$MANPATH
+    export PATH=$HOME/bin:$PATH
+    export LD_LIBRARY_PATH=$HOME/lib:$LD_LIBRARY_PATH
+    export MANPATH=$HOME/share/man:$MANPATH
 
     if [ $cuda == 'no' ]; then
       export CUDA_VISIBLE_DEVICES=""
@@ -60,21 +61,23 @@ elif [ $location == 'snellius' ]; then
     fi
 
     RUN=srun
+    RUNFLAGS=--mpi=pmix
     RES_DIR=./results/
-    TEST_EXEC=/home/spasqualoni/Swing_Test/out
-    DEBUG_EXEC=/home/spasqualoni/Swing_Test/debug
-    RULE_UPDATER_EXEC=/home/spasqualoni/Swing_Test/update_collective_rules
-    RULE_FILE_PATH=/home/spasqualoni/Swing_Test/collective_rules.txt
+    TEST_EXEC=$HOME/Swing_Test/out
+    DEBUG_EXEC=$HOME/Swing_Test/debug
+    RULE_UPDATER_EXEC=$HOME/Swing_Test/update_collective_rules
+    RULE_FILE_PATH=$HOME/Swing_Test/collective_rules.txt
 elif [ $location == 'local' ]; then
     # sets PATH, LD_LIBRARY_PATH and MANPATH
     source ~/use_ompi.sh
 
     RUN=mpiexec
+    RUNFLAGS=
     RES_DIR=./local_results/
     TEST_EXEC=./out
     DEBUG_EXEC=./debug
     RULE_UPDATER_EXEC=./update_collective_rules
-    RULE_FILE_PATH=/home/saverio/University/Tesi/test/collective_rules.txt
+    RULE_FILE_PATH=$HOME/University/Tesi/test/collective_rules.txt
 else
     echo "ERROR: location not correctly set up, aborting..."
     exit 1
@@ -109,10 +112,8 @@ run_test() {
     local type=$3
     local algo=$4
     
-    # BUG: nnodes from here can create problems with the scope
-    # WARN: maybe fixed, idk
     echo "Running -> $N_NODES processes, $size array size, $type datatype (Algo: $algo)"
-    $RUN -n $N_NODES $TEST_EXEC $size $iter $type $algo $OUTPUT_DIR
+    $RUN $RUNFLAGS -n $N_NODES $TEST_EXEC $size $iter $type $algo $OUTPUT_DIR
 }
 
 if [ $debug == 'no' ]; then
@@ -140,7 +141,7 @@ for algo in ${ALGOS[@]}; do
 
         if [ $debug == 'yes' ]; then
             echo "Debugging -> Algo $algo, $N_NODES processes, $size array size"
-            $RUN -n $N_NODES $DEBUG_EXEC $size
+            $RUN $RUNFLAGS -n $N_NODES $DEBUG_EXEC $size
         else
             iter=$(get_iterations $size)
             for type in "${TYPES[@]}"; do
