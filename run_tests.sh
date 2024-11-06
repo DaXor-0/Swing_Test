@@ -121,6 +121,9 @@ if [ $debug == 'no' ]; then
     mkdir -p "$OUTPUT_DIR"
 fi
 
+make clean
+make all
+
 # Test custom algorithms here, loop through:
 # - algorithms:
 #     - 8 swing latency
