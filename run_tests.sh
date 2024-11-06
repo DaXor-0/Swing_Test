@@ -9,6 +9,7 @@ cleanup() {
 trap cleanup SIGINT
 
 N_NODES=$1
+TIMESTAMP=$2
 
 # location='local'
 # location='leonardo'
@@ -87,7 +88,6 @@ fi
 
 export OMPI_MCA_coll_hcoll_enable=0
 export OMPI_MCA_coll_tuned_use_dynamic_rules=1
-TIMESTAMP=$(date +"%Y_%m_%d___%H:%M:%S")
 OUTPUT_DIR="$RES_DIR/$TIMESTAMP/"
 
 get_iterations() {

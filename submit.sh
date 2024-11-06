@@ -6,19 +6,9 @@
 #SBATCH --exclusive                  # Exclusive access to nodes
 #SBATCH --account=<account_name>     # Account name
 
-/home/spasqualoni/Swing_Test/run_tests.sh 16                # run the test suite on 16 node
+TIMESTAMP=$(date +"%Y_%m_%d___%H:%M:%S")
 
-scontrol update JobId=$SLURM_JOB_ID NumNodes=8
-. slurm_job_${SLURM_JOB_ID}_resize.sh
-
-/home/spasqualoni/Swing_Test/run_tests.sh 8                 # run the test suite on 8 node
-
-scontrol update JobId=$SLURM_JOB_ID NumNodes=4
-. slurm_job_${SLURM_JOB_ID}_resize.sh
-
-/home/spasqualoni/Swing_Test/run_tests.sh 4                 # run the test suite on 4 node
-
-scontrol update JobId=$SLURM_JOB_ID NumNodes=2
-. slurm_job_${SLURM_JOB_ID}_resize.sh
-
-/home/spasqualoni/Swing_Test/run_tests.sh 2                 # run the test suite on 2 node
+/home/spasqualoni/Swing_Test/run_tests.sh 16 $TIMESTAMP
+/home/spasqualoni/Swing_Test/run_tests.sh 8 $TIMESTAMP
+/home/spasqualoni/Swing_Test/run_tests.sh 4 $TIMESTAMP
+/home/spasqualoni/Swing_Test/run_tests.sh 2 $TIMESTAMP
