@@ -44,7 +44,7 @@ if [ $location == 'leonardo' ]; then
 
     RUN=srun
     RUNFLAGS=
-    RES_DIR=./results/
+    RES_DIR=$HOME/Swing_Test/results/
     TEST_EXEC=$HOME/Swing_Test/out
     DEBUG_EXEC=$HOME/Swing_Test/debug
     RULE_UPDATER_EXEC=$HOME/Swing_Test/update_collective_rules
@@ -62,7 +62,7 @@ elif [ $location == 'snellius' ]; then
 
     RUN=srun
     RUNFLAGS=--mpi=pmix
-    RES_DIR=./results/
+    RES_DIR=$HOME/Swing_Test/results/
     TEST_EXEC=$HOME/Swing_Test/out
     DEBUG_EXEC=$HOME/Swing_Test/debug
     RULE_UPDATER_EXEC=$HOME/Swing_Test/update_collective_rules
