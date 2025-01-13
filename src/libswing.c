@@ -1,5 +1,6 @@
 #include "libswing.h"
 #include <math.h>
+#include <mpi.h>
 
 #define SWING_MAX_STEPS 20 ///< Maximum number of steps in the swing algorithm. Supports up to 2^20 nodes.
 
@@ -179,7 +180,7 @@ int allreduce_swing_lat(const void *sbuf, void *rbuf, size_t count, MPI_Datatype
     } else {
       ret = MPI_Recv(tmprecv, count, dtype, (rank - 1), 0, comm, MPI_STATUS_IGNORE);
       if (MPI_SUCCESS != ret) { line = __LINE__; goto error_hndl; }
-      reduction((int64_t *) tmprecv, (int64_t *) tmpsend, count);
+      MPI_Reduce_local((char *) tmprecv, (char *) tmpsend, count, dtype, op);
       new_rank = rank >> 1;
     }
   } else new_rank = rank - extra_ranks;
@@ -201,7 +202,7 @@ int allreduce_swing_lat(const void *sbuf, void *rbuf, size_t count, MPI_Datatype
                        comm, MPI_STATUS_IGNORE);
     if (MPI_SUCCESS != ret) { line = __LINE__; goto error_hndl; }
     
-    reduction((int64_t *) tmprecv, (int64_t *) tmpsend, count);
+    MPI_Reduce_local((char *) tmprecv, (char *) tmpsend, count, dtype, op);
   }
   
   // Final results is sent to nodes that are not included in general computation
@@ -292,7 +293,8 @@ int allreduce_recursivedoubling(const void *sbuf, void *rbuf, size_t count,
                   MPI_STATUS_IGNORE);
       if (MPI_SUCCESS != ret) { line = __LINE__; goto error_hndl; }
       /* tmpsend = tmprecv (op) tmpsend */
-      reduction((int64_t *) tmprecv, (int64_t *) tmpsend, count);
+      // reduction((int64_t *) tmprecv, (int64_t *) tmpsend, count);
+      MPI_Reduce_local((char *) tmprecv, (char *) tmpsend, count, dtype, op);
       newrank = rank >> 1;
     }
   } else {
@@ -316,7 +318,8 @@ int allreduce_recursivedoubling(const void *sbuf, void *rbuf, size_t count,
                        comm, MPI_STATUS_IGNORE);
     if (MPI_SUCCESS != ret) { line = __LINE__; goto error_hndl; }
 
-    reduction((int64_t *) tmprecv, (int64_t *) tmpsend, count);
+    // reduction((int64_t *) tmprecv, (int64_t *) tmpsend, count);
+    MPI_Reduce_local((char *) tmprecv, (char *) tmpsend, count, dtype, op);
   }
 
   /* Handle non-power-of-two case:
