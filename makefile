@@ -27,8 +27,10 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(@D)
 	$(MPICC) $(CFLAGS_MPI) -c $< -o $@
 
+
 $(DEBUG_EXEC): debug.c
-	$(MPICC) $(DEBUG_FLAGS) $(CFLAGS_MPI) debug.c -o $(DEBUG_EXEC)
+	mpicc -g -O3 -Wall -lm -c debug.c -o debug.o
+	$(MPICC) $(DEBUG_FLAGS) $(CFLAGS_MPI) obj/libswing.o debug.o -o $(DEBUG_EXEC)
 
 # Compile update_collective_rules.c into its own executable with gcc and different flags
 $(RULES_EXEC): update_collective_rules.c

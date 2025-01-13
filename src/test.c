@@ -1,81 +1,81 @@
-#include <stdio.h>
-#include <string.h>
-
 #include "test_tool.h"
+#include "libswing.h"
 
 int main(int argc, char *argv[]) {
-  int rank, comm_sz, i;
-
   MPI_Init(NULL, NULL);
+
   MPI_Comm comm = MPI_COMM_WORLD;
+  int rank, comm_sz;
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &comm_sz);
   
-  // Error checking for command-line arguments
-  if (argc < 6) {
-    if (rank == 0) {
-      fprintf(stderr, "Usage: %s <array_size> <iterations> <dtype> <algo> <dirpath>\n", argv[0]);
-    }
-    MPI_Abort(comm, 1);
+  
+  // Allocate memory for the buffers
+  char *sendbuf = NULL, *recvbuf = NULL, *recvbuf_gt = NULL;
+  double *times = NULL, *all_times = NULL, *highest = NULL;
+  double start_time, end_time;
+  
+  size_t array_size;
+  int iter, alg_number;
+  const char* type_string, *dirpath;
+  if (get_command_line_arguments(argc, argv, &array_size, &iter, &type_string, &alg_number, &dirpath) == -1){
+    goto cleanup;
   }
 
-  char *endptr;
-  size_t array_size = (size_t) strtoll(argv[1], &endptr, 10);
-  if (*endptr != '\0' || array_size <= 0) {
-    if (rank == 0) {
-      fprintf(stderr, "Error: Invalid array size. It must be a positive integer. Aborting...\n");
-    }
-    MPI_Abort(comm, 1);
-  }
-
-  int iter = (int) strtol(argv[2], &endptr, 10);
-  if (*endptr != '\0' || iter <= 0) {
-    if (rank == 0) {
-      fprintf(stderr, "Error: Invalid number of iterations. It must be a positive integer. Aborting...\n");
-    }
-    MPI_Abort(comm, 1);
-  }
-
-  const char* type_string = argv[3];
   MPI_Datatype dtype;
   size_t type_size;
   if (get_data_type(type_string, &dtype, &type_size) == -1){
-    if (rank == 0){
-      fprintf(stderr, "Error: Invalid datatype. Aborting...\n");
-    }
-    MPI_Abort(comm, 1);
+    goto cleanup;
   }
-  
-  // Allocate memory for the buffers
-  char *sendbuf, *recvbuf, *recvbuf_gt;
+
   sendbuf = (char *)malloc(array_size * type_size);
   recvbuf = (char *)malloc(array_size * type_size);
   recvbuf_gt = (char *)malloc(array_size * type_size);
-  if (sendbuf == NULL || recvbuf == NULL || recvbuf_gt == NULL) {
-    if (rank == 0){
-      fprintf(stderr, "Error: Memory allocation failed. Aborting...\n");
-    }
-    MPI_Abort(comm, 1);
-  } 
+  times = (double *)malloc(iter * sizeof(double));
   
-  if (rand_array_generator(sendbuf, type_string, array_size, rank) == -1){
-    if (rank == 0){
-      fprintf(stderr, "Error: sendbuf not generated correctly. Aborting...\n");
-    }
-    MPI_Abort(comm, 1);
+  if (sendbuf == NULL || recvbuf == NULL || recvbuf_gt == NULL || times == NULL) {
+    fprintf(stderr, "Error: Memory allocation failed. Aborting...\n");
+    goto cleanup;
   }
 
-  // Each process will store its times for each iteration
-  double start_time, end_time;
-  double *times = (double *)malloc(iter * sizeof(double));
+  // Allocate memory for root-specific buffers
+  if (rank == 0) {
+    all_times = (double *)malloc(comm_sz * iter * sizeof(double));
+    highest = (double *)malloc(iter * sizeof(double));
+    if (all_times == NULL || highest == NULL){
+      fprintf(stderr, "Error: Memory allocation failed. Aborting...\n");
+      goto cleanup;
+    }
+  }
+  
+  // randomly generate the sendbuf
+  if (rand_array_generator(sendbuf, type_string, array_size, rank) == -1){
+    goto cleanup;
+  }
 
   // Perform ITER iterations of MPI_Allreduce and measure time
-  for (i = 0; i < iter; i++) {
-    MPI_Barrier(comm);
-    start_time = MPI_Wtime();
-    MPI_Allreduce(sendbuf, recvbuf, array_size, dtype, MPI_SUM, comm);
-    end_time = MPI_Wtime();
-    times[i] = end_time - start_time;
+  for (int i = 0; i < iter; i++) {
+    if (alg_number == 14){
+      MPI_Barrier(comm);
+      start_time = MPI_Wtime();
+      allreduce_recursivedoubling(sendbuf, recvbuf, array_size, dtype, MPI_SUM, comm);
+      end_time = MPI_Wtime();
+      times[i] = end_time - start_time;
+    }
+    else if (alg_number == 15){
+      MPI_Barrier(comm);
+      start_time = MPI_Wtime();
+      allreduce_swing_lat(sendbuf, recvbuf, array_size, dtype, MPI_SUM, comm);
+      end_time = MPI_Wtime();
+      times[i] = end_time - start_time;
+    }
+    else {
+      MPI_Barrier(comm);
+      start_time = MPI_Wtime();
+      MPI_Allreduce(sendbuf, recvbuf, array_size, dtype, MPI_SUM, comm);
+      end_time = MPI_Wtime();
+      times[i] = end_time - start_time;
+    }
   }
 
   // Do a ground-truth check on the correctness of last iteration result
@@ -83,62 +83,32 @@ int main(int argc, char *argv[]) {
   MPI_Bcast(recvbuf_gt, array_size, dtype, 0, comm);
   if(dtype != MPI_DOUBLE && dtype != MPI_FLOAT){
     if (memcmp(recvbuf, recvbuf_gt, array_size * type_size) != 0){
-      if (rank == 0){
-        fprintf(stderr, "Error: results are not valid. Aborting...\n");
-      }
-      MPI_Abort(comm, 1);
+      fprintf(stderr, "Error: results are not valid. Aborting...\n");
+      goto cleanup;
     }
   } else{
+    // On floating point arithmetic ground-truth check also consider rounding errors
     if (are_equal_eps(recvbuf_gt, recvbuf, array_size, type_string, comm_sz) == -1){
-      if (rank == 0){
-        fprintf(stderr, "Error: results are not valid. Aborting...\n");
-      }
-      MPI_Abort(comm, 1);
+      fprintf(stderr, "Error: results are not valid. Aborting...\n");
+      goto cleanup;
     }
   }
 
-  // Gather all process times to rank 0
-  double *all_times = NULL;
-  if (rank == 0) {
-    all_times = (double *)malloc(comm_sz * iter * sizeof(double));
-  }
+  // Gather all process times to rank 0 and find the highest execution time of each iteration
   MPI_Gather(times, iter, MPI_DOUBLE, all_times, iter, MPI_DOUBLE, 0, comm);
-
-  // Find the highest execution time of each iteration
-  double *highest = NULL;
-  if (rank == 0) {
-    highest = (double *)malloc(iter * sizeof(double));
-  }
   MPI_Reduce(times, highest, iter, MPI_DOUBLE, MPI_MAX, 0, comm);
-
-  char filename[256];
-  int alg_number = atoi(argv[4]);
-  snprintf(filename, sizeof(filename), "%d_%ld_%s_%d.csv", comm_sz, array_size, type_string, alg_number);
-
-  const char *dirpath = argv[5];
-  char fullpath[MAX_PATH_LENGTH];
-  if (concatenate_path(dirpath, filename, fullpath) == -1) {
-    fprintf(stderr, "Error: Failed to create fullpath.\n");
-    MPI_Abort(comm, 1);
-  }
-
-  FILE *output_file = NULL;
-  if (rank == 0) {
-    output_file = fopen(fullpath, "w");
-    if (output_file == NULL) {
-      fprintf(stderr, "Error: Opening file %s for writing\n", fullpath);
-      MPI_Abort(comm, 1);
+  
+  // Save everything to file
+  if (rank == 0){
+    char filename[256], fullpath[MAX_PATH_LENGTH];
+    snprintf(filename, sizeof(filename), "%d_%ld_%s_%d.csv", comm_sz, array_size, type_string, alg_number);
+    if (concatenate_path(dirpath, filename, fullpath) == -1) {
+      fprintf(stderr, "Error: Failed to create fullpath.\n");
+      goto cleanup;
     }
-
-    fprintf(output_file, "# highest, rank1, rank2, ..., rankn (time is in ns (i.e. 10^-9 s))\n");
-    for (i = 0; i < iter; i++) {
-      fprintf(output_file, "%d", (int) (highest[i] * 1000000000)); // Write iteration number and the highest number
-      for (int j = 0; j < comm_sz; j++) {
-        fprintf(output_file, ", %d", (int) (all_times[j * iter + i] * 1000000000)); // Write the time for each rank
-      }
-      fprintf(output_file, "\n");
+    if (write_output_to_file(fullpath, highest, all_times, iter, comm_sz) == -1){
+      goto cleanup;
     }
-    fclose(output_file);
   }
 
   // Clean up
@@ -152,6 +122,22 @@ int main(int argc, char *argv[]) {
   }
   
   MPI_Finalize();
-  return 0;
+
+  return EXIT_SUCCESS;
+
+cleanup:
+  if (NULL != sendbuf)    free(sendbuf);
+  if (NULL != recvbuf)    free(recvbuf);
+  if (NULL != recvbuf_gt) free(recvbuf_gt);
+  if (NULL != times)      free(times);
+  
+  if (rank == 0) {
+    if (NULL != all_times)  free(all_times);
+    if (NULL != highest)    free(highest);
+  }
+
+  MPI_Finalize();
+
+  return EXIT_FAILURE;
 }
 

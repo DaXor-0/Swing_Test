@@ -11,9 +11,9 @@ trap cleanup SIGINT
 N_NODES=$1
 TIMESTAMP=$2
 
-# location='local'
+location='local'
 # location='leonardo'
-location='snellius'
+# location='snellius'
 
 # debug=yes
 debug=no
@@ -21,11 +21,12 @@ debug=no
 # cuda=yes
 cuda=no
 
-ALGOS=(0 8 9 10 11 12 13)
-#ALGOS=(0 1 2 3 4 5 6 7 8 9 10 11 12 13)
+ALGOS=(3 8 14 15)
+# ALGOS=(0 1 2 3 4 5 6 7 8 9 10 11 12 13)
+SKIP=(4 5 6 9 10 11 12 13)
 
-ARR_SIZES=(8 64 512 2048 16384 131072 1048576 8388608 67108864)
-TYPES=('int32' )
+ARR_SIZES=(8 64 512 2048 16384) #131072 1048576 8388608 67108864)
+TYPES=('int64' )
 # TYPES=('int32' 'int64' 'float' 'double' 'char' 'int8' 'int16')
 # NOTE: problems with char, int8, int16
 
@@ -36,7 +37,7 @@ if [ $location == 'leonardo' ]; then
     export MANPATH=$HOME/share/man:$MANPATH
 
     export UCX_IB_SL=1
-    
+
     if [ $cuda == 'no' ]; then
       export CUDA_VISIBLE_DEVICES=""
       export OMPI_MCA_btl="^smcuda"
@@ -85,10 +86,10 @@ else
 fi
 
 
-
 export OMPI_MCA_coll_hcoll_enable=0
 export OMPI_MCA_coll_tuned_use_dynamic_rules=1
 OUTPUT_DIR="$RES_DIR/$TIMESTAMP/"
+DATA_DIR="$OUTPUT_DIR/data/"
 
 get_iterations() {
     size=$1
@@ -111,14 +112,15 @@ run_test() {
     local iter=$2
     local type=$3
     local algo=$4
-    
+
     echo "Running -> $N_NODES processes, $size array size, $type datatype (Algo: $algo)"
-    $RUN $RUNFLAGS -n $N_NODES $TEST_EXEC $size $iter $type $algo $OUTPUT_DIR
+    $RUN $RUNFLAGS -n $N_NODES $TEST_EXEC $size $iter $type $algo $DATA_DIR
 }
 
 if [ $debug == 'no' ]; then
     mkdir -p "$RES_DIR"
     mkdir -p "$OUTPUT_DIR"
+    mkdir -p "$DATA_DIR"
 fi
 
 make clean
@@ -128,17 +130,23 @@ make all
 # - algorithms:
 #     - 8 swing latency
 #     - 9 swing bandwidt memcp
-#     - 10 swing bandwidt datatype
-#     - 11 swing bandwidt datatype + memcp
-#     - 12 swing bandwidt segmented
+#     - 10 swing bandwidth datatype
+#     - 11 swing bandwidth datatype + memcp
+#     - 12 swing bandwidth segmented
+#     - 13 swing bandwidth static
+#     - 14 swing latency OVER MPI
+#     - 15 recursive doubling OVER MPI
 # - number of mpi processes
 # - size of the array in number of elements (of type = TYPE) 
-for algo in ${ALGOS[@]}; do   
+#
+# note that algo 14 and 15 are not defined in Opmi so
+# ompi will go with default algorithm selection
+for algo in ${ALGOS[@]}; do
     $RULE_UPDATER_EXEC $RULE_FILE_PATH $algo
     export OMPI_MCA_coll_tuned_dynamic_rules_filename=${RULE_FILE_PATH}
     for size in "${ARR_SIZES[@]}"; do
-        if (( size < $N_NODES )); then
-            echo "Skipping -> $N_NODES processes, $size array size (Algo: $algo)"
+        if [[ size -lt $N_NODES && " ${SKIP[@]} " =~ " ${algo} " ]]; then
+            echo "Skipping algorithm $algo: is in SKIP and size=$size < N_NODES=$N_NODES"
             continue
         fi
 
@@ -153,3 +161,7 @@ for algo in ${ALGOS[@]}; do
         fi
     done
 done
+
+if [ $location != 'local' ]; then
+    srun -n $N_NODES hostname > "$OUTPUT_DIR/$N_NODES.txt"
+fi

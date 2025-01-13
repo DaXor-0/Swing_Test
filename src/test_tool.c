@@ -1,20 +1,54 @@
-#include <stdio.h>
-#include <string.h>
-#include <time.h>
-#include <math.h>
-
 #include "test_tool.h"
 
+typedef struct {
+  const char* t_string;
+  MPI_Datatype mpi_type;
+  size_t t_size;
+} TypeMap;
+
 const TypeMap type_map[] = {
-  {"int8", MPI_INT8_T, sizeof(int8_t)},
-  {"int16", MPI_INT16_T, sizeof(int16_t)},
-  {"int32", MPI_INT32_T, sizeof(int32_t)},
-  {"int64", MPI_INT64_T, sizeof(int64_t)},
-  {"int", MPI_INT, sizeof(int)},
-  {"float", MPI_FLOAT, sizeof(float)},
-  {"double", MPI_DOUBLE, sizeof(double)},
-  {"char", MPI_CHAR, sizeof(char)}
+  {"int8",    MPI_INT8_T,   sizeof(int8_t)},
+  {"int16",   MPI_INT16_T,  sizeof(int16_t)},
+  {"int32",   MPI_INT32_T,  sizeof(int32_t)},
+  {"int64",   MPI_INT64_T,  sizeof(int64_t)},
+  {"int",     MPI_INT,      sizeof(int)},
+  {"float",   MPI_FLOAT,    sizeof(float)},
+  {"double",  MPI_DOUBLE,   sizeof(double)},
+  {"char",    MPI_CHAR,     sizeof(char)}
 };
+
+
+int get_command_line_arguments(int argc, char** argv, size_t *array_size, int* iter, const char **type_string, int * alg_number, const char ** dirpath){
+  if (argc < 6) {
+    fprintf(stderr, "Usage: %s <array_size> <iterations> <dtype> <algo> <dirpath>\n", argv[0]);
+    return -1;
+  }
+
+  char *endptr;
+  *array_size = (size_t) strtoll(argv[1], &endptr, 10);
+  if (*endptr != '\0' || *array_size <= 0) {
+    fprintf(stderr, "Error: Invalid array size. It must be a positive integer. Aborting...\n");
+    return -1;
+  }
+
+  *iter = (int) strtol(argv[2], &endptr, 10);
+  if (*endptr != '\0' || *iter <= 0) {
+    fprintf(stderr, "Error: Invalid number of iterations. It must be a positive integer. Aborting...\n");
+    return -1;
+  }
+  
+  *type_string = argv[3];
+  
+  *alg_number = (int) strtol(argv[4], &endptr, 10);
+  if (*endptr != '\0' || *alg_number < 0 || *alg_number > 15) {
+    fprintf(stderr, "Error: Invalid alg number. It must be in [0-15]. Aborting...\n");
+    return -1;
+  }
+  
+  *dirpath = argv[5];
+  
+  return 0;
+}
 
 
 int get_data_type(const char *type_string, MPI_Datatype *dtype, size_t *type_size) {
@@ -28,6 +62,7 @@ int get_data_type(const char *type_string, MPI_Datatype *dtype, size_t *type_siz
     }
   }
 
+  fprintf(stderr, "Error: Invalid datatype. Aborting...\n");
   return -1;
 }
 
@@ -69,6 +104,7 @@ int rand_array_generator(void *target, const char *type_string, size_t array_siz
       ((char *)target)[i] = (char)(rand_r(&seed) % 256); // Random char value
     }
   } else {
+    fprintf(stderr, "Error: sendbuf not generated correctly. Aborting...\n");
     return -1;  // Unsupported type
   }
 
@@ -111,7 +147,6 @@ int are_equal_eps(const void *buf_1, const void *buf_2, size_t array_size, const
 }
 
 
-
 int concatenate_path(const char *dirpath, const char *filename, char *fullpath){
   if (dirpath == NULL || filename == NULL) {
     fprintf(stderr, "Directory path or filename is NULL.\n");
@@ -143,3 +178,22 @@ int concatenate_path(const char *dirpath, const char *filename, char *fullpath){
   return 0;
 }
 
+int write_output_to_file(const char *fullpath, double *highest, double *all_times, int iter, int comm_sz) {
+  FILE *output_file = fopen(fullpath, "w");
+  if (output_file == NULL) {
+    fprintf(stderr, "Error: Opening file %s for writing\n", fullpath);
+    return -1;  // Return error code if file opening fails
+  }
+
+  fprintf(output_file, "# highest, rank1, rank2, ..., rankn (time is in ns (i.e. 10^-9 s))\n");
+  for (int i = 0; i < iter; i++) {
+    fprintf(output_file, "%d", (int)(highest[i] * 1000000000));  // Write the highest number for this iteration
+    for (int j = 0; j < comm_sz; j++) {
+      fprintf(output_file, ", %d", (int)(all_times[j * iter + i] * 1000000000));  // Write each rank's time
+    }
+    fprintf(output_file, "\n");
+  }
+
+  fclose(output_file);
+  return 0;
+}

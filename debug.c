@@ -2,14 +2,16 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-int int_pow(int base, int exp) {
+#include "src/libswing.h"
+
+int64_t int_pow(int base, int exp) {
   int result = 1;
   while (exp > 0) {
     if (exp % 2 == 1) result *= base;
     base *= base;
     exp /= 2;
   }
-  return result;
+  return (int64_t) result;
 }
 
 int main(int argc, char *argv[]) {
@@ -39,13 +41,15 @@ int main(int argc, char *argv[]) {
       }
   }
 
-  int sendbuf[dim], recvbuf[dim];
+  int64_t *sendbuf, *recvbuf;
+  sendbuf = (int64_t *) malloc(dim*sizeof(int64_t));
+  recvbuf = (int64_t *) malloc(dim*sizeof(int64_t));
   
   for(int i=0; i<dim; i++){
     sendbuf[i] = int_pow(10, my_rank);
   }
 
-  MPI_Allreduce(sendbuf, recvbuf, dim, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+  allreduce_recursivedoubling(sendbuf, recvbuf, dim, MPI_INT64_T, MPI_SUM, MPI_COMM_WORLD);
   
   if(what_to_print == 1){
     //PRINT SOURCEBUF
@@ -53,7 +57,7 @@ int main(int argc, char *argv[]) {
       if (my_rank == rank) {
         printf("\nRANK %d\n", my_rank);
         for (int ind = 0; ind < dim; ind++){
-          printf("%d\t",sendbuf[ind]);
+          printf("%ld\t",sendbuf[ind]);
         }
         printf("\n");
         fflush(stdout);
@@ -67,7 +71,7 @@ int main(int argc, char *argv[]) {
       if (my_rank == rank) {
         printf("\nRANK %d\n", my_rank);
         for (int ind = 0; ind < dim; ind++){
-          printf("%d\t",recvbuf[ind]);
+          printf("%ld\t",recvbuf[ind]);
         }
         printf("\n");
         fflush(stdout);
@@ -90,7 +94,7 @@ int main(int argc, char *argv[]) {
               printf("\nRANK %d\n", my_rank);
               flag = 0;
             }
-            printf("%d:%d\t", ind, recvbuf[ind]);
+            printf("%d:%ld\t", ind, recvbuf[ind]);
           }
         }
         if(flag == 0){
@@ -107,7 +111,7 @@ int main(int argc, char *argv[]) {
       if (my_rank == rank) {
         printf("\nRANK %d\nsrc\tres\n", my_rank);
         for (int ind = 0; ind < dim; ind++){
-          printf("%d\t%d\n", sendbuf[ind], recvbuf[ind]);
+          printf("%ld\t%ld\n", sendbuf[ind], recvbuf[ind]);
         }
         printf("\n");
         fflush(stdout);
@@ -115,6 +119,9 @@ int main(int argc, char *argv[]) {
       MPI_Barrier(MPI_COMM_WORLD);
     }
   }
+  
+  free(sendbuf);
+  free(recvbuf);
 
   MPI_Finalize();
   return 0;
