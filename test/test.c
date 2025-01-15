@@ -1,3 +1,7 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "test_tool.h"
 #include "libswing.h"
 
@@ -69,6 +73,13 @@ int main(int argc, char *argv[]) {
       end_time = MPI_Wtime();
       times[i] = end_time - start_time;
     }
+    else if (alg_number == 16){
+      MPI_Barrier(comm);
+      start_time = MPI_Wtime();
+      allreduce_swing_bdw_static(sendbuf, recvbuf, array_size, dtype, MPI_SUM, comm);
+      end_time = MPI_Wtime();
+      times[i] = end_time - start_time;
+    }
     else {
       MPI_Barrier(comm);
       start_time = MPI_Wtime();
@@ -100,7 +111,7 @@ int main(int argc, char *argv[]) {
   
   // Save everything to file
   if (rank == 0){
-    char filename[256], fullpath[MAX_PATH_LENGTH];
+    char filename[256], fullpath[TEST_MAX_PATH_LENGTH];
     snprintf(filename, sizeof(filename), "%d_%ld_%s_%d.csv", comm_sz, array_size, type_string, alg_number);
     if (concatenate_path(dirpath, filename, fullpath) == -1) {
       fprintf(stderr, "Error: Failed to create fullpath.\n");

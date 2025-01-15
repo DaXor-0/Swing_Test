@@ -1,119 +1,10 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <limits.h>
+
 #include "libswing.h"
-#include <math.h>
-#include <mpi.h>
-
-#define SWING_MAX_STEPS 20 ///< Maximum number of steps in the swing algorithm. Supports up to 2^20 nodes.
-
-static int rhos[SWING_MAX_STEPS] = {1, -1, 3, -5, 11, -21, 43, -85, 171, -341, 683, -1365, 2731, -5461, 10923, -21845, 43691, -87381, 174763, -349525};
-
-/**
- * @brief Computes the destination rank for a given process in a swing algorithm step.
- *
- * This function calculates the rank to which a process will communicate based on the swing algorithm,
- * ensuring the result is within the valid range of ranks.
- *
- * @param rank The rank of the current process.
- * @param step The current step in the swing algorithm.
- * @param comm_sz The total number of processes in the communicator.
- * @return The destination rank after applying the swing algorithm, a value in [0, comm_sz - 1].
- */
-static inline int pi(int rank, int step, int comm_sz) {
-  int dest;
-
-  if ((rank & 1) == 0) dest = (rank + rhos[step]) % comm_sz;  // Even rank
-  else dest = (rank - rhos[step]) % comm_sz;                  // Odd rank
-
-  if (dest < 0) dest += comm_sz;                              // Adjust for negative ranks
-
-  return dest;
-}
-
-/**
- * @brief Copies data from an input buffer to an output buffer.
- *
- * This function validates the input parameters and performs a memory copy of `count` elements
- * from the input buffer to the output buffer, using the size of the specified MPI datatype.
- *
- * @param input_buffer Pointer to the source buffer.
- * @param output_buffer Pointer to the destination buffer.
- * @param count Number of elements to copy.
- * @param datatype The MPI datatype of each element.
- * @return 0 on success, or -1 if the input parameters are invalid.
- */
-static inline int copy_buffer(const void *input_buffer, void *output_buffer, size_t count, const MPI_Datatype datatype) {
-  if (input_buffer == NULL || output_buffer == NULL || count <= 0) {
-    return -1; ///< Invalid input parameters
-  }
-
-  int datatype_size;
-  MPI_Type_size(datatype, &datatype_size);                // Get the size of the MPI datatype
-
-  size_t total_size = count * (size_t)datatype_size;
-
-  memcpy(output_buffer, input_buffer, total_size);        // Perform the memory copy
-
-  return 0;
-}
-
-/**
- * @brief Computes the memory span for `count` repetitions of the given MPI datatype.
- *
- * This function calculates the total memory required for `count` repetitions of an MPI datatype,
- * including the gap at the beginning (true lower bound) and excluding padding at the end.
- *
- * @param datatype The MPI datatype.
- * @param count Number of repetitions of the datatype.
- * @param gap Pointer to store the gap (true lower bound) at the beginning.
- * @return The total memory span required for `count` repetitions of the datatype.
- */
-static inline ptrdiff_t datatype_span(MPI_Datatype datatype, size_t count, ptrdiff_t *gap) {
-  if (count == 0) {
-    *gap = 0;
-    return 0;                                                  // No memory span required for zero repetitions
-  }
-
-  MPI_Aint lb, extent;
-  MPI_Aint true_lb, true_extent;
-
-  MPI_Type_get_extent(datatype, &lb, &extent);                // Get the extent of the datatype
-  MPI_Type_get_true_extent(datatype, &true_lb, &true_extent); // Get the true extent of the datatype
-
-  *gap = true_lb;                                             // Store the true lower bound
-
-  return true_extent + extent * (count - 1);                  // Calculate the total memory span
-}
-
-/**
- * @brief Finds the largest power of 2 less than or equal to the given size.
- *
- * This function uses bitwise operations to compute the largest power of 2 that is less than
- * or equal to the input size, in O(log(size)) time.
- *
- * @param size The input value.
- * @return The largest power of 2 less than or equal to the input size, or -1 if the input size is non-positive.
- */
-static inline int nearest_po2(int size) {
-  if (size <= 0) return -1;
-
-  size |= size >> 1;
-  size |= size >> 2;
-  size |= size >> 4;
-  size |= size >> 8;
-  size |= size >> 16;
-
-  return size - (size >> 1);
-}
-
-static inline int mylog2(int x) {
-    return sizeof(int)*8 - 1 - __builtin_clz(x);
-}
-
-// Function to perform the addition operation
-static inline void reduction(int64_t *buf1, int64_t *buf2, size_t count) {
-  for (size_t i = 0; i < count; ++i) {
-      buf2[i] += buf1[i];
-  }
-}
+#include "libswing_utils.h"
+#include "libswing_bitmaps.h"
 
 int allreduce_swing_lat(const void *sbuf, void *rbuf, size_t count, MPI_Datatype dtype, MPI_Op op, MPI_Comm comm) {
   int rank, size;
@@ -151,18 +42,17 @@ int allreduce_swing_lat(const void *sbuf, void *rbuf, size_t count, MPI_Datatype
   tmpsend = inplacebuf;
   tmprecv = (char*) rbuf;
   
-  int extra_ranks, new_rank = rank, loop_flag = 0; // needed to handle not power of 2 cases
-
-  //Determine nearest power of two less than or equal to size
-  int adjsize = nearest_po2(size);
-  if (-1 == adjsize) {
-    return MPI_ERR_ARG;
+  // Determine nearest power of two less than or equal to size
+  // and return an error if size is 0
+  int steps = hibit(size, (int)(sizeof(size) * CHAR_BIT) - 1);
+  if (steps == -1) {
+      return MPI_ERR_ARG;
   }
-  int steps = mylog2(adjsize);
+  int adjsize = 1 << steps;  // Largest power of two <= size
 
-  //Number of nodes that exceed max(2^n)< size
-  extra_ranks = size - adjsize;
-  int is_power_of_two = size >> 1 == adjsize;
+  // Number of nodes that exceed the largest power of two less than or equal to size
+  int extra_ranks = size - adjsize;
+  int is_power_of_two = (size & (size - 1)) == 0;
 
 
   // First part of computation to get a 2^n number of nodes.
@@ -172,6 +62,7 @@ int allreduce_swing_lat(const void *sbuf, void *rbuf, size_t count, MPI_Datatype
   // All the nodes that do not stop their computation will receive an alias
   // called new_node, used to calculate their correct destination wrt this
   // new "cut" topology.
+  int new_rank = rank, loop_flag = 0;
   if (rank <  (2 * extra_ranks)) {
     if (0 == (rank % 2)) {
       ret = MPI_Send(tmpsend, count, dtype, (rank + 1), 0, comm);
@@ -273,7 +164,7 @@ int allreduce_recursivedoubling(const void *sbuf, void *rbuf, size_t count,
   tmprecv = (char*) rbuf;
 
   /* Determine nearest power of two less than or equal to size */
-  adjsize = nearest_po2(size);
+  adjsize = next_poweroftwo(size);
 
   /* Handle non-power-of-two case:
      - Even ranks less than 2 * extra_ranks send their data to (rank + 1), and
@@ -354,3 +245,130 @@ int allreduce_recursivedoubling(const void *sbuf, void *rbuf, size_t count,
     return ret;
 }
 
+
+
+int allreduce_swing_bdw_static(const void *send_buf, void *recv_buf, size_t count,
+                               MPI_Datatype dtype, MPI_Op op, MPI_Comm comm){
+  int size, rank; 
+  MPI_Comm_size(comm, &size);
+  MPI_Comm_rank(comm, &rank);
+
+  // Find number of steps of scatter-reduce and allgather,
+  // biggest power of two smaller or equal to size,
+  // size of send_window (number of chunks to send/recv at each step)
+  // and alias of the rank to be used if size != adj_size
+  //Determine nearest power of two less than or equal to size
+  int steps = hibit(size, (int) (sizeof(size) * CHAR_BIT) - 1);
+  if (-1 == steps){
+    return MPI_ERR_ARG;
+  }
+  int adjsize = 1 << steps;
+  
+  //WARNING: Assuming size is a pow of 2
+  int vrank, vdest;
+  vrank = rank;
+  
+  ptrdiff_t lb, extent, gap = 0;
+  MPI_Type_get_extent(dtype, &lb, &extent);
+  
+  int split_rank;
+  size_t small_blocks, big_blocks;
+  COLL_BASE_COMPUTE_BLOCKCOUNT(count, adjsize, split_rank,
+                               big_blocks, small_blocks);
+  
+  // Find the biggest power-of-two smaller than count to allocate
+  // as few memory as necessary for buffers
+  int n_pow = hibit((int) count, (int) (sizeof(count) * CHAR_BIT) -1); 
+  size_t buf_count = 1 << n_pow;
+  ptrdiff_t buf_size = datatype_span(dtype, buf_count, &gap);
+
+  // Temporary target buffer for send operations and source buffer
+  // for reduce and overwrite operations
+  char *tmp_send = NULL, *tmp_recv = NULL;
+  char *tmp_buf_raw = NULL, *tmp_buf;
+  tmp_buf_raw = (char *)malloc(buf_size);
+  tmp_buf = tmp_buf_raw - gap;
+
+  // Copy into receive_buffer content of send_buffer to not produce
+  // side effects on send_buffer
+  if (send_buf != MPI_IN_PLACE) {
+    copy_buffer((char *)recv_buf, (char *)send_buf, count, dtype);
+  }
+  
+  const int *s_bitmap = NULL, *r_bitmap = NULL;
+  if(get_static_bitmap(&s_bitmap, &r_bitmap, steps, size, rank) == -1){
+    free(tmp_buf);
+    return MPI_ERR_UNKNOWN;
+  }
+  
+  int step, w_size = adjsize;
+  size_t s_count, r_count;
+  ptrdiff_t s_offset, r_offset;
+  // Reduce-Scatter phase
+  for (step = 0; step < steps; step++) {
+    w_size >>= 1;
+    vdest = pi(vrank, step, adjsize);
+
+    s_count = (s_bitmap[step] + w_size <= split_rank) ?
+                (size_t)w_size * big_blocks :
+                  (s_bitmap[step] >= split_rank) ?
+                    (size_t)w_size * small_blocks :
+                    (size_t)w_size * small_blocks + (size_t)(split_rank - s_bitmap[step]);
+    s_offset = (s_bitmap[step] <= split_rank) ?
+                (ptrdiff_t) s_bitmap[step] * (ptrdiff_t)(big_blocks * extent) :
+                (ptrdiff_t)(s_bitmap[step] * (int) small_blocks + split_rank) * (ptrdiff_t) extent;
+
+    r_count = (r_bitmap[step] + w_size <= split_rank) ?
+                (size_t)w_size * big_blocks :
+                  (r_bitmap[step] >= split_rank) ?
+                    (size_t)w_size * small_blocks :
+                    (size_t)w_size * small_blocks + (size_t)(split_rank - r_bitmap[step]);
+    r_offset = (r_bitmap[step] <= split_rank) ?
+                (ptrdiff_t) r_bitmap[step] * (ptrdiff_t)(big_blocks * extent) :
+                (ptrdiff_t)(r_bitmap[step] * (int) small_blocks + split_rank) * (ptrdiff_t) extent;
+    
+    tmp_send = (char *)recv_buf + s_offset;
+    MPI_Sendrecv(tmp_send, s_count, dtype, vdest, 0,
+                 tmp_buf, r_count, dtype, vdest, 0,
+                 comm, MPI_STATUS_IGNORE);
+    
+    tmp_recv = (char *) recv_buf + r_offset;
+    MPI_Reduce_local(tmp_buf, tmp_recv, r_count, dtype, op);
+  }
+  
+  // Allgather phase
+  for(step = steps - 1; step >= 0; step--) {
+    vdest = pi(vrank, step, adjsize);
+    
+    s_count = (s_bitmap[step] + w_size <= split_rank) ?
+                (size_t)w_size * big_blocks :
+                  (s_bitmap[step] >= split_rank) ?
+                    (size_t)w_size * small_blocks :
+                    (size_t)w_size * small_blocks + (size_t)(split_rank - s_bitmap[step]);
+    s_offset = (s_bitmap[step] <= split_rank) ?
+                (ptrdiff_t) s_bitmap[step] * (ptrdiff_t)(big_blocks * extent) :
+                (ptrdiff_t)(s_bitmap[step] * (int) small_blocks + split_rank) * (ptrdiff_t) extent;
+
+    r_count = (r_bitmap[step] + w_size <= split_rank) ?
+                (size_t)w_size * big_blocks :
+                  (r_bitmap[step] >= split_rank) ?
+                    (size_t)w_size * small_blocks :
+                    (size_t)w_size * small_blocks + (size_t)(split_rank - r_bitmap[step]);
+    r_offset = (r_bitmap[step] <= split_rank) ?
+                (ptrdiff_t) r_bitmap[step] * (ptrdiff_t)(big_blocks * extent) :
+                (ptrdiff_t)(r_bitmap[step] * (int)small_blocks + split_rank) * (ptrdiff_t) extent;
+    
+    tmp_send = (char *)recv_buf + s_offset;
+    tmp_recv = (char *)recv_buf + r_offset;
+
+    MPI_Sendrecv(tmp_recv, r_count, dtype, vdest, 0,
+                 tmp_send, s_count, dtype, vdest, 0,
+                 comm, MPI_STATUS_IGNORE);
+    
+    w_size <<= 1;
+  }
+
+  free(tmp_buf_raw);
+
+  return MPI_SUCCESS;
+}

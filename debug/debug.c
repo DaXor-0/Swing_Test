@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "src/libswing.h"
+#include "libswing.h"
 
 int64_t int_pow(int base, int exp) {
   int result = 1;

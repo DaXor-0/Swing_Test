@@ -1,3 +1,9 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <math.h>
+#include <string.h>
+
 #include "test_tool.h"
 
 typedef struct {
@@ -6,7 +12,7 @@ typedef struct {
   size_t t_size;
 } TypeMap;
 
-const TypeMap type_map[] = {
+const static TypeMap type_map[] = {
   {"int8",    MPI_INT8_T,   sizeof(int8_t)},
   {"int16",   MPI_INT16_T,  sizeof(int16_t)},
   {"int32",   MPI_INT32_T,  sizeof(int32_t)},
@@ -40,8 +46,8 @@ int get_command_line_arguments(int argc, char** argv, size_t *array_size, int* i
   *type_string = argv[3];
   
   *alg_number = (int) strtol(argv[4], &endptr, 10);
-  if (*endptr != '\0' || *alg_number < 0 || *alg_number > 15) {
-    fprintf(stderr, "Error: Invalid alg number. It must be in [0-15]. Aborting...\n");
+  if (*endptr != '\0' || *alg_number < 0 || *alg_number > 16) {
+    fprintf(stderr, "Error: Invalid alg number. It must be in [0-16]. Aborting...\n");
     return -1;
   }
   
@@ -123,7 +129,7 @@ int are_equal_eps(const void *buf_1, const void *buf_2, size_t array_size, const
     float *b1 = (float *) buf_1;
     float *b2 = (float *) buf_2;
     
-    float epsilon = comm_sz * BASE_EPSILON_FLOAT * 100.0f;
+    float epsilon = comm_sz * TEST_BASE_EPSILON_FLOAT * 100.0f;
 
     for (i = 0; i < array_size; i++){
       if (fabs(b1[i] - b2[i]) > epsilon) {
@@ -134,7 +140,7 @@ int are_equal_eps(const void *buf_1, const void *buf_2, size_t array_size, const
     double *b1 = (double *) buf_1;
     double *b2 = (double *) buf_2;
     
-    double epsilon = comm_sz * BASE_EPSILON_DOUBLE * 100.0;
+    double epsilon = comm_sz * TEST_BASE_EPSILON_DOUBLE * 100.0;
     
     for (i = 0; i < array_size; i++){
       if (fabs(b1[i] - b2[i]) > epsilon) {
@@ -163,7 +169,7 @@ int concatenate_path(const char *dirpath, const char *filename, char *fullpath){
   }
 
   // Ensure the final full path won't exceed buffer size
-  if (dirpath_len + filename_len + 2 > MAX_PATH_LENGTH) {
+  if (dirpath_len + filename_len + 2 > TEST_MAX_PATH_LENGTH) {
     // +2 accounts for a possible '/' and the null terminator
     fprintf(stderr, "Combined path length exceeds buffer size.\n");
     return -1;

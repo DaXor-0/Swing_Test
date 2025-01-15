@@ -2,15 +2,11 @@
 #define TEST_TOOLS_H
 
 #include <mpi.h>
-#include <stdio.h>
-#include <string.h>
-#include <time.h>
-#include <math.h>
-#include <stdlib.h>
+#include <stddef.h>
 
-#define MAX_PATH_LENGTH 512
-#define BASE_EPSILON_FLOAT 1e-6    // Base epsilon for float
-#define BASE_EPSILON_DOUBLE 1e-15  // Base epsilon for double
+#define TEST_MAX_PATH_LENGTH 512
+#define TEST_BASE_EPSILON_FLOAT 1e-6    // Base epsilon for float
+#define TEST_BASE_EPSILON_DOUBLE 1e-15  // Base epsilon for double
 
 
 int get_data_type(const char *type_string, MPI_Datatype *dtype, size_t *type_size);

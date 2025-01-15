@@ -6,12 +6,12 @@
 
 int update_file(const char *filename, int new_value) {
   // Validate the new value
-  if (new_value < 0 || new_value > 15) {
-    fprintf(stderr, "Error: The number must be between 0 and 15.\n");
+  if (new_value < 0 || new_value > 16) {
+    fprintf(stderr, "Error: The number must be between 0 and 16.\n");
     return -1;
   }
 
-  if (new_value == 14 || new_value == 15) new_value = 0;
+  if (new_value > 13) new_value = 0;
   
 
   FILE *file = fopen(filename, "r+");
@@ -50,7 +50,7 @@ int update_file(const char *filename, int new_value) {
 
 int main(int argc, char *argv[]) {
   if (argc != 3) {
-    fprintf(stderr, "Usage: %s <filename> <number between 0 and 13>\n", argv[0]);
+    fprintf(stderr, "Usage: %s <filename> <number between 0 and 16>\n", argv[0]);
     return EXIT_FAILURE;
   }
 
