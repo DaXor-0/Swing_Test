@@ -1,5 +1,8 @@
 bin/*
 
+local_results/*
+results/
+
 out
 update_collective_rules
 *.csv
