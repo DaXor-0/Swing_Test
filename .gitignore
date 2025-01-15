@@ -1,3 +1,6 @@
+include
+bin
+
 out
 update_collective_rules
 *.csv
