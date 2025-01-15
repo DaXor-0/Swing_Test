@@ -1,5 +1,5 @@
-include
 bin
+lib
 
 out
 update_collective_rules
