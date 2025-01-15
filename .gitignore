@@ -1,10 +1,10 @@
-bin
-lib
+bin/*
 
 out
 update_collective_rules
 *.csv
 *.o
+*.a
 
 compile_commands.json
 .cache
