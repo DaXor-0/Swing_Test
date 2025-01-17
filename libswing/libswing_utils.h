@@ -122,7 +122,7 @@ static inline int mylog2(int x) {
 
 
 /**
- * @brief Returns next power-of-two of the given value.
+ * @brief Returns next power-of-two greater of the given value.
  *
  * @param value The integer value to return power of 2
  *

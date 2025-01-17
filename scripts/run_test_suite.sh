@@ -38,7 +38,7 @@ else
     exit 1
 fi
 
-ALGOS=(3 8 6 13)                    # List of algorithm indices to test
+ALGOS=(14 15 16)                    # List of algorithm indices to test
 SKIP=(4 5 6 9 10 11 12 13 16)       # Algorithms to skip if $N_NODES > $ARR_SIZE
 ARR_SIZES=(8 64 512 2048 16384)     # Number of elements in the array
 TYPES=('int64')                     # Data types to test

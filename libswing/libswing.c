@@ -6,6 +6,129 @@
 #include "libswing_utils.h"
 #include "libswing_bitmaps.h"
 
+
+
+int allreduce_recursivedoubling(const void *sbuf, void *rbuf, size_t count,
+                                MPI_Datatype dtype, MPI_Op op, MPI_Comm comm)
+{
+  int ret, line, rank, size, adjsize, remote, distance;
+  int newrank, newremote, extra_ranks;
+  char *tmpsend = NULL, *tmprecv = NULL, *inplacebuf_free = NULL, *inplacebuf;
+  ptrdiff_t span, gap = 0;
+
+  MPI_Comm_size(comm, &size);
+  MPI_Comm_rank(comm, &rank);
+
+  /* Special case for size == 1 */
+  if (1 == size) {
+    if (MPI_IN_PLACE != sbuf) {
+      ret = copy_buffer((char *) sbuf, (char *) rbuf, count, dtype);
+      if (ret < 0) { line = __LINE__; goto error_hndl; }
+    }
+    return MPI_SUCCESS;
+  }
+
+  /* Allocate and initialize temporary send buffer */
+  span = datatype_span(dtype, count, &gap);
+
+  inplacebuf_free = (char*) malloc(span);
+  if (NULL == inplacebuf_free) { ret = -1; line = __LINE__; goto error_hndl; }
+  inplacebuf = inplacebuf_free - gap;
+
+  if (MPI_IN_PLACE == sbuf) {
+      ret = copy_buffer((char*)rbuf, inplacebuf, count, dtype);
+      if (ret < 0) { line = __LINE__; goto error_hndl; }
+  } else {
+      ret = copy_buffer((char*)sbuf, inplacebuf, count, dtype);
+      if (ret < 0) { line = __LINE__; goto error_hndl; }
+  }
+
+  tmpsend = (char*) inplacebuf;
+  tmprecv = (char*) rbuf;
+
+  /* Determine nearest power of two less than or equal to size */
+  adjsize = next_poweroftwo(size) >> 1;
+
+  /* Handle non-power-of-two case:
+     - Even ranks less than 2 * extra_ranks send their data to (rank + 1), and
+     sets new rank to -1.
+     - Odd ranks less than 2 * extra_ranks receive data from (rank - 1),
+     apply appropriate operation, and set new rank to rank/2
+     - Everyone else sets rank to rank - extra_ranks
+  */
+  extra_ranks = size - adjsize;
+  if (rank <  (2 * extra_ranks)) {
+    if (0 == (rank % 2)) {
+      ret = MPI_Send(tmpsend, count, dtype, (rank + 1), 0, comm);
+      if (MPI_SUCCESS != ret) { line = __LINE__; goto error_hndl; }
+      newrank = -1;
+    } else {
+      ret = MPI_Recv(tmprecv, count, dtype, (rank - 1), 0, comm,
+                  MPI_STATUS_IGNORE);
+      if (MPI_SUCCESS != ret) { line = __LINE__; goto error_hndl; }
+      /* tmpsend = tmprecv (op) tmpsend */
+      // reduction((int64_t *) tmprecv, (int64_t *) tmpsend, count);
+      MPI_Reduce_local((char *) tmprecv, (char *) tmpsend, count, dtype, op);
+      newrank = rank >> 1;
+    }
+  } else {
+    newrank = rank - extra_ranks;
+  }
+
+  /* Communication/Computation loop
+     - Exchange message with remote node.
+     - Perform appropriate operation taking in account order of operations:
+     result = value (op) result
+  */
+  for (distance = 0x1; distance < adjsize; distance <<=1) {
+    if (newrank < 0) break;
+    /* Determine remote node */
+    newremote = newrank ^ distance;
+    remote = (newremote < extra_ranks) ? (newremote * 2 + 1) : (newremote + extra_ranks);
+   
+    /* Exchange the data */
+    ret = MPI_Sendrecv(tmpsend, count, dtype, remote, 0,
+                       tmprecv, count, dtype, remote, 0,
+                       comm, MPI_STATUS_IGNORE);
+    if (MPI_SUCCESS != ret) { line = __LINE__; goto error_hndl; }
+
+    // reduction((int64_t *) tmprecv, (int64_t *) tmpsend, count);
+    MPI_Reduce_local((char *) tmprecv, (char *) tmpsend, count, dtype, op);
+  }
+
+  /* Handle non-power-of-two case:
+     - Odd ranks less than 2 * extra_ranks send result from tmpsend to
+     (rank - 1)
+     - Even ranks less than 2 * extra_ranks receive result from (rank + 1)
+  */
+  if (rank < (2 * extra_ranks)) {
+    if (0 == (rank % 2)) {
+      ret = MPI_Recv(rbuf, count, dtype, (rank + 1), 0, comm, MPI_STATUS_IGNORE);
+      if (MPI_SUCCESS != ret) { line = __LINE__; goto error_hndl; }
+      tmpsend = (char*)rbuf;
+    } else {
+      ret = MPI_Send(tmpsend, count, dtype, (rank - 1), 0, comm);
+      if (MPI_SUCCESS != ret) { line = __LINE__; goto error_hndl; }
+    }
+  }
+
+  /* Ensure that the final result is in rbuf */
+  if (tmpsend != rbuf) {
+    ret = copy_buffer(tmpsend, (char*)rbuf, count, dtype);
+    if (ret < 0) { line = __LINE__; goto error_hndl; }
+  }
+
+  if (NULL != inplacebuf_free) free(inplacebuf_free);
+  return MPI_SUCCESS;
+
+  error_hndl:
+    fprintf(stderr, "%s:%4d\tRank %d Error occurred %d\n", __FILE__, line, rank, ret);
+    (void)line;  // silence compiler warning
+    if (NULL != inplacebuf_free) free(inplacebuf_free);
+    return ret;
+}
+
+
 int allreduce_swing_lat(const void *sbuf, void *rbuf, size_t count, MPI_Datatype dtype, MPI_Op op, MPI_Comm comm) {
   int rank, size;
   int ret, line; // for error handling
@@ -123,129 +246,6 @@ int allreduce_swing_lat(const void *sbuf, void *rbuf, size_t count, MPI_Datatype
     if (NULL != inplacebuf_free) free(inplacebuf_free);
     return ret;
 }
-
-
-int allreduce_recursivedoubling(const void *sbuf, void *rbuf, size_t count,
-                                MPI_Datatype dtype, MPI_Op op, MPI_Comm comm)
-{
-  int ret, line, rank, size, adjsize, remote, distance;
-  int newrank, newremote, extra_ranks;
-  char *tmpsend = NULL, *tmprecv = NULL, *inplacebuf_free = NULL, *inplacebuf;
-  ptrdiff_t span, gap = 0;
-
-  MPI_Comm_size(comm, &size);
-  MPI_Comm_rank(comm, &rank);
-
-  /* Special case for size == 1 */
-  if (1 == size) {
-    if (MPI_IN_PLACE != sbuf) {
-      ret = copy_buffer((char *) sbuf, (char *) rbuf, count, dtype);
-      if (ret < 0) { line = __LINE__; goto error_hndl; }
-    }
-    return MPI_SUCCESS;
-  }
-
-  /* Allocate and initialize temporary send buffer */
-  span = datatype_span(dtype, count, &gap);
-
-  inplacebuf_free = (char*) malloc(span);
-  if (NULL == inplacebuf_free) { ret = -1; line = __LINE__; goto error_hndl; }
-  inplacebuf = inplacebuf_free - gap;
-
-  if (MPI_IN_PLACE == sbuf) {
-      ret = copy_buffer((char*)rbuf, inplacebuf, count, dtype);
-      if (ret < 0) { line = __LINE__; goto error_hndl; }
-  } else {
-      ret = copy_buffer((char*)sbuf, inplacebuf, count, dtype);
-      if (ret < 0) { line = __LINE__; goto error_hndl; }
-  }
-
-  tmpsend = (char*) inplacebuf;
-  tmprecv = (char*) rbuf;
-
-  /* Determine nearest power of two less than or equal to size */
-  adjsize = next_poweroftwo(size);
-
-  /* Handle non-power-of-two case:
-     - Even ranks less than 2 * extra_ranks send their data to (rank + 1), and
-     sets new rank to -1.
-     - Odd ranks less than 2 * extra_ranks receive data from (rank - 1),
-     apply appropriate operation, and set new rank to rank/2
-     - Everyone else sets rank to rank - extra_ranks
-  */
-  extra_ranks = size - adjsize;
-  if (rank <  (2 * extra_ranks)) {
-    if (0 == (rank % 2)) {
-      ret = MPI_Send(tmpsend, count, dtype, (rank + 1), 0, comm);
-      if (MPI_SUCCESS != ret) { line = __LINE__; goto error_hndl; }
-      newrank = -1;
-    } else {
-      ret = MPI_Recv(tmprecv, count, dtype, (rank - 1), 0, comm,
-                  MPI_STATUS_IGNORE);
-      if (MPI_SUCCESS != ret) { line = __LINE__; goto error_hndl; }
-      /* tmpsend = tmprecv (op) tmpsend */
-      // reduction((int64_t *) tmprecv, (int64_t *) tmpsend, count);
-      MPI_Reduce_local((char *) tmprecv, (char *) tmpsend, count, dtype, op);
-      newrank = rank >> 1;
-    }
-  } else {
-    newrank = rank - extra_ranks;
-  }
-
-  /* Communication/Computation loop
-     - Exchange message with remote node.
-     - Perform appropriate operation taking in account order of operations:
-     result = value (op) result
-  */
-  for (distance = 0x1; distance < adjsize; distance <<=1) {
-    if (newrank < 0) break;
-    /* Determine remote node */
-    newremote = newrank ^ distance;
-    remote = (newremote < extra_ranks) ? (newremote * 2 + 1) : (newremote + extra_ranks);
-    
-    /* Exchange the data */
-    ret = MPI_Sendrecv(tmpsend, count, dtype, remote, 0,
-                       tmprecv, count, dtype, remote, 0,
-                       comm, MPI_STATUS_IGNORE);
-    if (MPI_SUCCESS != ret) { line = __LINE__; goto error_hndl; }
-
-    // reduction((int64_t *) tmprecv, (int64_t *) tmpsend, count);
-    MPI_Reduce_local((char *) tmprecv, (char *) tmpsend, count, dtype, op);
-  }
-
-  /* Handle non-power-of-two case:
-     - Odd ranks less than 2 * extra_ranks send result from tmpsend to
-     (rank - 1)
-     - Even ranks less than 2 * extra_ranks receive result from (rank + 1)
-  */
-  if (rank < (2 * extra_ranks)) {
-    if (0 == (rank % 2)) {
-      ret = MPI_Recv(rbuf, count, dtype, (rank + 1), 0, comm, MPI_STATUS_IGNORE);
-      if (MPI_SUCCESS != ret) { line = __LINE__; goto error_hndl; }
-      tmpsend = (char*)rbuf;
-    } else {
-      ret = MPI_Send(tmpsend, count, dtype, (rank - 1), 0, comm);
-      if (MPI_SUCCESS != ret) { line = __LINE__; goto error_hndl; }
-    }
-  }
-
-  /* Ensure that the final result is in rbuf */
-  if (tmpsend != rbuf) {
-    ret = copy_buffer(tmpsend, (char*)rbuf, count, dtype);
-    if (ret < 0) { line = __LINE__; goto error_hndl; }
-  }
-
-  if (NULL != inplacebuf_free) free(inplacebuf_free);
-  return MPI_SUCCESS;
-
-  error_hndl:
-    fprintf(stderr, "%s:%4d\tRank %d Error occurred %d\n", __FILE__, line, rank, ret);
-    (void)line;  // silence compiler warning
-    if (NULL != inplacebuf_free) free(inplacebuf_free);
-    return ret;
-}
-
-
 
 int allreduce_swing_bdw_static(const void *send_buf, void *recv_buf, size_t count,
                                MPI_Datatype dtype, MPI_Op op, MPI_Comm comm){
