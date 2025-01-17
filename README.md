@@ -109,6 +109,9 @@ The script must be modified to select:
 - `<n_nodes>`: The number of nodes to request for the SLURM job. Note that, for benchmarking reasons this must be the number of processes (i.e. one single process for node, irrespective of node cores).
 - `<requested_time>`: The time requested for job allocation. Higher number of hours is suggested.
 - `<account_name>`: Account name on the target cluster.
+- `<LOCATION>`: Name of the machine, as defined in `scripts/environments/`.
+- `<CUDA>`: If use CUDA-aware MPI. Beware that this option works only on Open MPI for now.
+- `<OMPI_TEST>`: If use custom Open MPI library with swing implementations.
 
 It will be modified to allow for algorithm selection directly in this stage. 
 
@@ -119,11 +122,10 @@ Beware that, especially with big allocations, those scripts can fail and waste c
 To run the benchmarking test suite without relying on the submit script, execute the following command:
 
 ```bash
-scripts/run_test_suite.sh <num_processes> <output_directory>
+scripts/run_test_suite.sh <num_processes>
 ```
 
 - `<num_processes>`: The number of processes to use for the test run.
-- `<output_directory>`: Name of the subdirectory where the test results will be saved.
 
 This script will set the necessary environmental variable based on the `location` variable.
 To configure environments, add a new .sh script in `scripts/environments/`, export the necessary variables, and update the `location` variable to point to the new script.
@@ -192,15 +194,15 @@ If you want to compile and build individual parts of the project you can either 
 #### Debug program
 - [ ] WRITE EVERYTHING (it really sucks now)
 #### Test/Debug suite Modifications
-- [ ] build a better and clearer interface to select variables for testing
-- [ ] add error handling and more explicit messages about what is being done
-- [ ] separate results by system
-- [ ] separate common parts of `run_tests_scrips` and `run_debug_scrips` to separate subscripts
+- [x] build a better and clearer interface to select variables for testing
+- [x] add error handling and more explicit messages about what is being done
+- [x] separate results by system
+- [ ] separate common parts of `run_tests_scrips` and `run_debug_scrips` to separate subscripts to avoid code repetitions
 - [ ] add an env var to select between `MPICH` and `Open MPI` binaries, independently of `ompi_test` (obviously `ompi_test` must be no when MPICH is selected)
-- [ ] comment the code
+- [x] comment the code
 #### Submit Script
 - [ ] insert an `<output_directory>` for stderr and stdout of slurm
-- [ ] automatically inject `$N_NODES` inside suite based on selected `-N` without further modifications
+- [x] automatically inject `$N_NODES` inside suite based on selected `-N` without further modifications
 - [ ] bring variables to select inside test/debug suites to this layer in order to give a better interface. Modifications on those suite is needed when running test without the submit script
 #### Results folder
 - [ ] add a script to compress the data

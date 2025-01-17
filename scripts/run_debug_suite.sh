@@ -9,23 +9,30 @@ cleanup() {
 trap cleanup SIGINT
 
 N_NODES=$1
+if [[ -z "$N_NODES" ]] || [[ ! "$N_NODES" =~ ^[0-9]+$ ]] || [ "$N_NODES" -lt 2 ]; then
+    echo "Error: N_NODES is not set. Please provide a valid number of nodes as the first argument."
+    exit 1
+fi
 
-location='local'
-# location='leonardo'
-# location='snellius'
+TIMESTAMP=${2:$(date +"%Y_%m_%d___%H:%M:%S")}
+LOCATION=${3:-local}
+CUDA=${4:-no}
+OMPI_TEST=${5:-yes}
 
-# cuda=yes
-cuda=no
-
-# Use custom Open MPI build with swing defined inside library (it must be built with --prefix=$HOME
-ompi_test='yes'
-#ompi_test='no'
 
 # Load the environment-specific configuration
-if [ -f scripts/environments/${location}.sh ]; then
-    source scripts/environments/${location}.sh
+if [ -f scripts/environments/${LOCATION}.sh ]; then
+    source scripts/environments/${LOCATION}.sh
+
+    DEBUG_EXEC=$SWING_DIR/bin/debug
+
+    RULE_UPDATER_EXEC=$SWING_DIR/bin/change_collective_rules
+    RULE_FILE_PATH=$SWING_DIR/ompi_rules/collective_rules.txt
+
+    export OMPI_MCA_coll_hcoll_enable=0
+    export OMPI_MCA_coll_tuned_use_dynamic_rules=1
 else
-    echo "ERROR: Environment script for location '${location}' not found!"
+    echo "ERROR: Environment script for location '${LOCATION}' not found!"
     exit 1
 fi
 
@@ -70,6 +77,6 @@ for algo in ${ALGOS[@]}; do
     done
 done
 
-if [ $location != 'local' ]; then
+if [ "$LOCATION" != 'local' ]; then
     srun -n $N_NODES hostname > "$OUTPUT_DIR/$N_NODES.txt"
 fi
