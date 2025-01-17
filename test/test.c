@@ -59,34 +59,22 @@ int main(int argc, char *argv[]) {
 
   // Perform ITER iterations of MPI_Allreduce and measure time
   for (int i = 0; i < iter; i++) {
+    MPI_Barrier(comm);
+    start_time = MPI_Wtime();
     if (alg_number == 14){
-      MPI_Barrier(comm);
-      start_time = MPI_Wtime();
       allreduce_recursivedoubling(sendbuf, recvbuf, array_size, dtype, MPI_SUM, comm);
-      end_time = MPI_Wtime();
-      times[i] = end_time - start_time;
     }
     else if (alg_number == 15){
-      MPI_Barrier(comm);
-      start_time = MPI_Wtime();
       allreduce_swing_lat(sendbuf, recvbuf, array_size, dtype, MPI_SUM, comm);
-      end_time = MPI_Wtime();
-      times[i] = end_time - start_time;
     }
     else if (alg_number == 16){
-      MPI_Barrier(comm);
-      start_time = MPI_Wtime();
       allreduce_swing_bdw_static(sendbuf, recvbuf, array_size, dtype, MPI_SUM, comm);
-      end_time = MPI_Wtime();
-      times[i] = end_time - start_time;
     }
     else {
-      MPI_Barrier(comm);
-      start_time = MPI_Wtime();
       MPI_Allreduce(sendbuf, recvbuf, array_size, dtype, MPI_SUM, comm);
-      end_time = MPI_Wtime();
-      times[i] = end_time - start_time;
     }
+    end_time = MPI_Wtime();
+    times[i] = end_time - start_time;
   }
 
   // Do a ground-truth check on the correctness of last iteration result

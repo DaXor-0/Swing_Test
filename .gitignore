@@ -1,7 +1,6 @@
 bin/*
 
-local_results/*
-results/
+results/local_*
 
 out
 update_collective_rules
