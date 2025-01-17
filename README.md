@@ -1,6 +1,5 @@
 # Project Overview
-
-Swing Allreduce (for now) repo. It is a modular project containing a main static library `libswing`, test and benchmark executables (inside `bin/` directory), scripts for benchmark and debug with `SLURM` on cluster and **soon** a data analysis and graph script.
+Swing Allreduce is a modular project featuring a static library (`libswing.a`), test and benchmark executables (`bin/`), and SLURM-based scripts for benchmarking and debugging on clusters. Future updates will include data analysis and graphing tools.
 
 The suggested workflow is to use and modify the .sh files in `scripts/` directory to set up environments, run debug tests and benchmarking tests.
 
@@ -15,7 +14,7 @@ The suggested workflow is to use and modify the .sh files in `scripts/` director
 ├── libswing              # Libswing library source code
 ├── makefile              # Top-level Makefile
 ├── obj                   # Object files
-├── plot                  # Python scripts for data analysis and visualization (TO BE PUSHED)
+├── plot                  # Python scripts for data analysis and visualization (in development)
 ├── results               # Results folder
 ├── test                  # Test (benchmark) program source code
 ├── ompi_rules            # Open MPI rule file generator
@@ -30,7 +29,7 @@ The `libswing/` directory contains the source code for the `libswing/` static li
 
 It contains Swing implementations built **OVER** MPI (beware that the tests are thought to work also on internal algorithms of Open MPI).
 
-##### Modify `libswing`
+#### Modify `libswing`
 To add new collectives, declare them on `include/libswing.h` where they should be thoroughly documented with a Doxygen style.
 
 Actual implementation must be written in `libswing/libswing.c` with helper functions declared as `static inline` in `libswing/libswing_utils.h`.
@@ -99,7 +98,7 @@ For cluster-based environments that use SLURM for job scheduling, a template scr
 
 To use it, you will need to customize the script as per your SLURM job submission requirements. The script includes placeholders and options for specifying the number of processes, job time, and output location.
 
-##### Example Usage for `submit.sh`
+#### Example Usage for `submit.sh`
 
 ```bash
 sbatch scripts/submit.sh
@@ -107,7 +106,7 @@ sbatch scripts/submit.sh
 The script must be modified to select:
 - `<p_name>`: Name of the partition to run tests on on the target cluster.
 - `<qos_name>`: Name of the required quality of service. (OPTIONAL)
-- `<n_nodes>`: The number of nodes to request for the SLURM job. Note that, for benchmarking reasons this must be the number of processes.
+- `<n_nodes>`: The number of nodes to request for the SLURM job. Note that, for benchmarking reasons this must be the number of processes (i.e. one single process for node, irrespective of node cores).
 - `<requested_time>`: The time requested for job allocation. Higher number of hours is suggested.
 - `<account_name>`: Account name on the target cluster.
 
@@ -126,7 +125,8 @@ scripts/run_test_suite.sh <num_processes> <output_directory>
 - `<num_processes>`: The number of processes to use for the test run.
 - `<output_directory>`: Name of the subdirectory where the test results will be saved.
 
-This script will set the necessary environmental variable based on the `location` variable. To set up new environments or modify the existing ones, create a bash script inside `scripts/environments/..` exporting the correct variables and modify the `location` variable with the name of the created script.
+This script will set the necessary environmental variable based on the `location` variable.
+To configure environments, add a new .sh script in `scripts/environments/`, export the necessary variables, and update the `location` variable to point to the new script.
 
 Other two variables to set up in the script are `ompi_test` and `cuda`. The first one refers to the use of the modified Open MPI library with Swing Allreduce algorithms.
 
@@ -137,7 +137,7 @@ Important variables for the test selection are:
 
 At the end of the test, hostnames of nodes will be saved, but this functionality will be merged inside the `bin/test` executable to allow the mapping of MPI rank to actual node allocation (and not only guess it based on node number).
 
-###### IMPORTANT
+##### IMPORTANT
 SKIP contains the algorithm to skip when `<num_processes> < <arr_size>` and must not be modified.
 
 ### `scripts/run_debug_suite.sh` - Debug Suite
@@ -164,7 +164,7 @@ To build the project, use the following steps:
 
 The `Makefile` automatically handles the compilation and linking for each component, creating the necessary binaries and libraries in the `bin` and `lib` directories.
 
-##### Compiling Individual Parts of the Project
+### Compiling Individual Parts of the Project
 The project is built with a recursive makefile approach in which a top-level `Makefile` will run the `make` commands for each subfolder.
 
 So, to build everything just run the `make` command in the main directory. You can also use the `make` command with the `clean` target to remove object files and binaries.
@@ -213,16 +213,3 @@ If you want to compile and build individual parts of the project you can either 
 - [ ] improve naming of output graphs so that they don't get overwritten by similar graphs
 - [ ] refactor to separate graph drawing functions to separate files
 - [ ] comment code
-
-<!-- ## Dependencies -->
-<!---->
-<!-- - `mpicc` (MPI C Compiler) -->
-<!-- - `open MPI` -->
-<!-- - `gcc` (GNU Compiler Collection) -->
-<!---->
-<!-- Ensure that your environment is set up with the necessary compilers and MPI libraries to successfully compile and run the components. -->
-<!---->
-<!-- ## License -->
-<!---->
-<!-- This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. -->
-
