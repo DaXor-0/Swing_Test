@@ -17,8 +17,12 @@ int are_equal_eps(const void *buf_1, const void *buf_2, size_t array_size, const
 
 int concatenate_path(const char *dirpath, const char *filename, char *fullpath);
 
-int get_command_line_arguments(int argc, char** argv, size_t *array_size, int* iter, const char **type_string, int * alg_number, const char ** dirpath);
+int get_command_line_arguments(int argc, char** argv, size_t *array_size, int* iter, const char **type_string, int * alg_number, const char ** outputdir);
 
 int write_output_to_file(const char *fullpath, double *highest, double *all_times, int iter, int comm_sz);
+
+int write_allocations_to_file(const char* filename);
+
+int file_not_exists(const char* filename);
 
 #endif

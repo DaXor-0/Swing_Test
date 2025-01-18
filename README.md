@@ -60,6 +60,8 @@ For now results are saved as a matrix in which each row is one iteration of the 
 
 Naming of this file is temporary and will be changed.
 
+The first time this main is called (i.e. if used with a script test/debug suite, only on the first call), also a .csv file with MPI rank allocations will be saved.
+
 ### `debug/` - Debugging `libswing`
 
 The `debug/` directory builds an executable `bin/debug` that links with the `libswing.a` library and is used for debugging purposes. It provides a controlled environment to test and debug `libswing`'s functionality. This component is useful when trying to locate issues in the library's code.
@@ -113,8 +115,11 @@ The script must be modified to select:
 - `<CUDA>`: If use CUDA-aware MPI. Beware that this option works only on Open MPI for now.
 - `<OMPI_TEST>`: If use custom Open MPI library with swing implementations.
 
+Also the standard output and error will be redirected into the results directory.
+
 It will be modified to allow for algorithm selection directly in this stage. 
 
+###### Warning
 Beware that, especially with big allocations, those scripts can fail and waste compute hours if left uncheck. It's suggested, if possible, for big allocations, to check if the script starts working. If it does it's unlikely that compute time will be wasted. Currently working on the reliability of this part.
 
 ### `scripts/run_test_suite.sh` - Benchmarking Suite 
@@ -195,26 +200,28 @@ A `.csv` file will be added to contain results metadata.
 - [ ] prepare for the possibility of implementing different collectives by refactoring code
 - [ ] document functions and comment code
 #### Test program
+- [x] document functions and comment code
+- [x] create a function to write rank and allocation inside test without relying on normal `srun` in test suite
 - [ ] use enum when possible for clarity
-- [ ] create a general interface to select specific testing for specific collectives without duplicating code by adding a sea of if-else statements
+- [ ] create a general interface to select specific testing for specific collectives without duplicating code by adding a sea of if-else statements (in particular modify the test loop to use a function pointer for each specific allreduce function and a switch for other collectives)
+- [ ] separate and modularize ground truth check for different kinds of collectives
 - [ ] standardize .csv format to what was decided with professor De Sensi
 - [ ] create a function to add metadata in the .csv asked by the professor
-- [ ] create a function to write rank and allocation inside test without relying on normal `srun` in test suite
 #### OMPI rules
 - [ ] change it so that it recognizes if the modified `Open MPI` is being run or not
 - [ ] modify to let it work also with `MPICH` algorithm selection
 #### Debug program
 - [ ] WRITE EVERYTHING (it really sucks now)
 #### Test/Debug suite Modifications
-- [x] build a better and clearer interface to select variables for testing
 - [x] add error handling and more explicit messages about what is being done
 - [x] separate results by system
+- [x] comment the code
+- [ ] build a better and clearer interface to select variables for testing
 - [ ] separate common parts of `run_tests_scrips` and `run_debug_scrips` to separate subscripts to avoid code repetitions
 - [ ] add an env var to select between `MPICH` and `Open MPI` binaries, independently of `ompi_test` (obviously `ompi_test` must be no when MPICH is selected)
-- [x] comment the code
 #### Submit Script
-- [ ] insert an `<output_directory>` for stderr and stdout of slurm
 - [x] automatically inject `$N_NODES` inside suite based on selected `-N` without further modifications
+- [x] insert an `<output_directory>` for stderr and stdout of slurm
 - [ ] bring variables to select inside test/debug suites to this layer in order to give a better interface. Modifications on those suite is needed when running test without the submit script
 #### Results folder
 - [x] add a script to compress the data

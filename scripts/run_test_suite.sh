@@ -54,13 +54,13 @@ DATA_DIR="$OUTPUT_DIR/data/"
 get_iterations() {
     size=$1
     if [ $size -le 512 ]; then
-        echo 15000
+        echo 20000
     elif [ $size -le 1048576 ]; then
-        echo 1500
+        echo 2000
     elif [ $size -le 8388608 ]; then
-        echo 100
+        echo 200
     elif [ $size -le 67108864 ]; then
-        echo 15
+        echo 20
     else
         echo 5
     fi
@@ -75,7 +75,7 @@ run_test() {
     local algo=$4
 
     echo "Running -> $N_NODES processes, $size array size, $type datatype (Algo: $algo)"
-    $RUN $RUNFLAGS -n $N_NODES $TEST_EXEC $size $iter $type $algo $DATA_DIR
+    $RUN $RUNFLAGS -n $N_NODES $TEST_EXEC $size $iter $type $algo $OUTPUT_DIR
 }
 
 # Create necessary output directories
@@ -121,8 +121,3 @@ for algo in ${ALGOS[@]}; do
         done
     done
 done
-
-# Save hostnames if the test is being run on a cluster
-if [ "$LOCATION" != 'local' ]; then
-    srun -n $N_NODES hostname > "$OUTPUT_DIR/$N_NODES.txt"
-fi

@@ -12,4 +12,13 @@ LOCATION=leonardo # possible locations are leonardo, snellius and local
 CUDA=no
 OMPI_TEST=yes
 
+# Create the results directory if it doesn't exist
+# (for redundacy will be done also in run_test_suite)
+mkdir -p $HOME/Swing_Test/results/$LOCATION/
+mkdir -p $HOME/Swing_Test/results/$LOCATION/$TIMESTAMP
+
+# Redirect standard output and error to the specified directory
+#SBATCH --output=$HOME/Swing_Test/results/$LOCATION/$TIMESTAMP/slurm-%j.out
+#SBATCH --error=$HOME/Swing_Test/results/$LOCATION/$TIMESTAMP/slurm-%j.err
+
 $HOME/Swing_Test/scripts/run_test_suite.sh $SLURM_NNODES $TIMESTAMP $LOCATION $CUDA $OMPI_TEST
