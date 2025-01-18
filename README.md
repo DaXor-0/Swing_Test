@@ -173,6 +173,18 @@ So, to build everything just run the `make` command in the main directory. You c
 
 If you want to compile and build individual parts of the project you can either run the `make` command inside the desired subdirectory, or run `make -C <directory>`. This works also with the `clean` command.
 
+## Results Management
+
+In this repository, the results are stored in a directory that is automatically compressed into a `.tar` file to save storage space and keep the repository clean. The process works as follows:
+
+1. **Results directory:** All raw results are saved in a dedicated directory, different for each system on which tests are run.
+2. **Compression Script:** A script is included in the repository to compress the results directory into a `.tar` file. The script also add to `.gitignore` the uncompressed results subdirectory and remove possible duplicates from the `.gitignore` file.
+3. **Pre-Commit Hook:** A pre-commit hook is set up to run the compression script automatically before each commit. This ensures that any new results are compressed and added to the repository in a consistent manner.
+
+There is no need to run the script manually as everything is done automatically.
+
+A `.csv` file will be added to contain results metadata.
+
 
 ## TODO
 #### Makefile
@@ -205,9 +217,9 @@ If you want to compile and build individual parts of the project you can either 
 - [x] automatically inject `$N_NODES` inside suite based on selected `-N` without further modifications
 - [ ] bring variables to select inside test/debug suites to this layer in order to give a better interface. Modifications on those suite is needed when running test without the submit script
 #### Results folder
-- [ ] add a script to compress the data
-- [ ] add tests present on my systems
+- [x] add a script to compress the data
 - [ ] add the script to build and update the .csv description
+- [ ] add tests present on my systems
 #### Plot python scripts
 - [ ] MODIFY AND WRITE EVERYTHING (not pushed by now bc the current version sucks)
 - [ ] add the possibility of selecting specific tests
