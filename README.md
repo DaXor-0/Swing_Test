@@ -225,6 +225,7 @@ A `.csv` file will be added to contain results metadata.
 - [ ] bring variables to select inside test/debug suites to this layer in order to give a better interface. Modifications on those suite is needed when running test without the submit script
 #### Results folder
 - [x] add a script to compress the data
+- [x] add pre-commit hook that triggers the compression of the new data, adds the uncompressed data to the gitignore
 - [ ] add the script to build and update the .csv description
 - [ ] add tests present on my systems
 #### Plot python scripts

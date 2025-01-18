@@ -4,7 +4,8 @@ bin/*
 .cache
 compile_commands.json
 *.csv
+*.err
 *.o
+*.out
 out
 results/local/*
-update_collective_rules

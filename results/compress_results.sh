@@ -29,8 +29,9 @@ compress_directory() {
 
 # Process all subdirectories inside the results subdirectories
 process_results_subdirectories() {
+    EXCLUDE_PATTERN="local"
     for subdir in "$BASE_DIR"/*/*; do
-        if [ -d "$subdir" ] && [[ "$subdir" != *"/local/"* ]] ; then
+        if [ -d "$subdir" ] && [[ "$subdir" != *"/$EXCLUDE_PATTERN/"* ]]; then
             compress_directory "$subdir"
         fi
     done
@@ -46,3 +47,7 @@ echo ".gitignore cleaned and sorted."
 # Stage .gitignore
 git add .gitignore
 echo ".gitignore staged for commit."
+
+# Stage compressed results
+git add results
+echo "compressed results staged for commit."
