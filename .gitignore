@@ -6,5 +6,5 @@ compile_commands.json
 *.csv
 *.o
 out
-results/local_*
+results/local/*
 update_collective_rules
