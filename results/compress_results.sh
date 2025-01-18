@@ -30,7 +30,7 @@ compress_directory() {
 # Process all subdirectories inside the results subdirectories
 process_results_subdirectories() {
     for subdir in "$BASE_DIR"/*/*; do
-        if [ -d "$subdir" ]; then
+        if [ -d "$subdir" ] && [[ "$subdir" != *"/local/"* ]] ; then
             compress_directory "$subdir"
         fi
     done
