@@ -232,9 +232,8 @@ A `.csv` file will be added to contain results metadata.
 - [ ] add the script to build and update the .csv description
 - [ ] add tests present on my systems
 #### Plot python scripts
-- [ ] MODIFY AND WRITE EVERYTHING (not pushed by now bc the current version sucks)
-- [ ] add the possibility of selecting specific tests
+- [x] add the possibility of selecting specific tests
+- [x] document and comment code
 - [ ] avoid working only with summaries, or at least give the possibility of not doing it
 - [ ] improve naming of output graphs so that they don't get overwritten by similar graphs
 - [ ] refactor to separate graph drawing functions to separate files
-- [ ] comment code

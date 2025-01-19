@@ -259,13 +259,16 @@ def add_labels(data) -> pd.DataFrame:
     return data
 
 
-if __name__ == "__main__":
+def main():
     # Parse command-line arguments
-    parser = argparse.ArgumentParser(description="Generate graphs for algorithms based on test results.")
+    parser = argparse.ArgumentParser(description="Generate graphs for \
+                                    algorithms based on test results.")
     parser.add_argument("--algorithms", nargs='+', type=int, required=True,
-                        help="List of algorithm numbers to graph. The first one is used for normalization.")
+                        help="List of algorithm numbers to graph. The \
+                              first one is used for normalization.")
     parser.add_argument("--system", type=str, required=True,
-                        help="System name where the tests are performed (e.g., 'leonardo').")
+                        help="System name where the tests are performed \
+                              (e.g., 'leonardo').")
 
     args = parser.parse_args()
 
@@ -303,7 +306,12 @@ if __name__ == "__main__":
         # Try normalizing the data and handle the case where base is not found
         data = normalize_dataset(data, algorithms_to_graph[0])
         # Check if normalization was skipped and if base algorithm was not found
-        if 'normalized_mean' not in data.columns or 'normalized_std' not in data.columns:
-            print(f"Base algorithm {algorithms_to_graph[0]} not found for {subfolder}, barplots not created.")
+        if 'normalized_mean' not in data.columns \
+                or 'normalized_std' not in data.columns:
+            print(f"Base algorithm {algorithms_to_graph[0]} not found for \
+                    {subfolder}, barplots not created.")
         else:
             generate_barplots(data, output_dir=graph_dir, system=system)
+
+if __name__ == "__main__":
+    main()
