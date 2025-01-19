@@ -153,7 +153,10 @@ Expect it to run like the test suite. Right now must be modified.
 
 ## Data Analysis and Visualization
 
-Right now I wrote it and it works on my local system. Must modify it before pushing it to the repo.
+Still in development. For now only two small scripts are added since I'm preparing everything to be used by more people.
+
+Take a look, but it's still WIP.
+
 
 ## Building
 
