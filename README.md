@@ -32,10 +32,7 @@ It contains Swing implementations built **OVER** MPI (beware that the tests are 
 #### Modify `libswing`
 To add new collectives, declare them on `include/libswing.h` where they should be thoroughly documented with a Doxygen style.
 
-Actual implementation must be written in `libswing/libswing.c` with helper functions declared as `static inline` in `libswing/libswing_utils.h`.
-
-Structure will be modified when other collectives will be added.
-
+Actual implementation must be written in `libswing/libswing_<coll_type>.c` with helper functions declared as `static inline` in `libswing/libswing_utils.h`.
 
 ### `test/` - Benchmark program
 
@@ -200,7 +197,7 @@ A `.csv` file will be added to contain results metadata.
 - [ ] separate build process from testing\debugging
 - [ ] add error handling when building\linking the library
 #### Libswing modifications
-- [ ] prepare for the possibility of implementing different collectives by refactoring code
+- [x] prepare for the possibility of implementing different collectives by refactoring code
 - [ ] document functions and comment code
 #### Test program
 - [x] document functions and comment code
