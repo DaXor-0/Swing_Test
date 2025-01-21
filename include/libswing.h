@@ -13,4 +13,10 @@ int allreduce_swing_bdw_static(const void *send_buf, void *recv_buf, size_t coun
 int allreduce_recursivedoubling(const void *sbuf, void *rbuf, size_t count,
                                 MPI_Datatype dtype, MPI_Op op, MPI_Comm comm);
 
+int allreduce_rabenseifner(const void *sbuf, void *rbuf, size_t count,
+                           MPI_Datatype dtype, MPI_Op op, MPI_Comm comm);
+
+int allgather_rabenseifner(const void *sbuf, size_t scount, MPI_Datatype sdtype,
+                           void* rbuf, size_t rcount, MPI_Datatype rdtype, MPI_Comm comm);
+
 #endif

@@ -66,12 +66,12 @@ static inline int pi(int rank, int step, int comm_sz) {
  * @param output_buffer Pointer to the destination buffer.
  * @param count Number of elements to copy.
  * @param datatype The MPI datatype of each element.
- * @return 0 on success, or -1 if the input parameters are invalid.
+ * @return MPI_SUCCESS on success, or MPI_ERR_UNKNOWN.
  */
 static inline int copy_buffer(const void *input_buffer, void *output_buffer,
                               size_t count, const MPI_Datatype datatype) {
   if (input_buffer == NULL || output_buffer == NULL || count <= 0) {
-    return -1; ///< Invalid input parameters
+    return MPI_ERR_UNKNOWN;
   }
 
   int datatype_size;
@@ -81,8 +81,49 @@ static inline int copy_buffer(const void *input_buffer, void *output_buffer,
 
   memcpy(output_buffer, input_buffer, total_size);        // Perform the memory copy
 
-  return 0;
+  return MPI_SUCCESS;
 }
+
+
+/**
+ * @brief Copies data from an input buffer to an output buffer with
+ * different datatypes.
+ *
+ * Similar to copy_buffer but handles the case with different dtypes.
+ *
+ * @param input_buffer Pointer to the source buffer.
+ * @param scount Number of elements to copy from source buffer.
+ * @param sdtype The MPI datatype of elements in input_buffer.
+ * @param output_buffer Pointer to the destination buffer.
+ * @param rcount Number of elements to copy to dest buffer.
+ * @param rdtype The MPI datatype of elements in destination buffer.
+ * @return MPI_SUCCESS on success, or MPI_ERR.
+ */
+static inline int copy_buffer_different_dt (const void *input_buffer, size_t scount,
+                                            const MPI_Datatype sdtype, void *output_buffer,
+                                            size_t rcount, const MPI_Datatype rdtype) {
+  if (input_buffer == NULL || output_buffer == NULL || scount <= 0 || rcount <= 0) {
+    return MPI_ERR_UNKNOWN;
+  }
+
+  int sdtype_size;
+  MPI_Type_size(sdtype, &sdtype_size);
+  int rdtype_size;
+  MPI_Type_size(rdtype, &rdtype_size);
+
+  size_t s_size = (size_t) sdtype_size * scount;
+  size_t r_size = (size_t) rdtype_size * rcount;
+
+  if (r_size < s_size) {
+    memcpy(output_buffer, input_buffer, r_size); // Copy as much as possible
+    return MPI_ERR_TRUNCATE;      // Indicate truncation
+  }
+
+  memcpy(output_buffer, input_buffer, s_size);        // Perform the memory copy
+
+  return MPI_SUCCESS;
+}
+
 
 /**
  * @brief Computes the memory span for `count` repetitions of the given
