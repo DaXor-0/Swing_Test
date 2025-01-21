@@ -8,6 +8,30 @@
 #define TEST_BASE_EPSILON_FLOAT 1e-6    // Base epsilon for float
 #define TEST_BASE_EPSILON_DOUBLE 1e-15  // Base epsilon for double
 
+typedef enum{
+  ALLREDUCE,
+  ALLGATHER,
+  REDUCE_SCATTER,
+  BROADCAST,
+  REDUCE
+} coll_t;
+
+typedef enum{
+  OMPI,
+  MPICH,
+  CUSTOM_OMPI
+}mpi_impl_t;
+
+typedef enum{
+  DEFAULT,
+  LINEAR,
+  NON_OVERLAPPING,
+  RECURSIVE_DOUBLING,
+  RING,
+  RING_SEGMENTED,
+  RABENSEIFNER,
+  ALLGATHER_REDUCE
+} ompi_allreduce_def_algo_t;
 
 int get_data_type(const char *type_string, MPI_Datatype *dtype, size_t *type_size);
 
