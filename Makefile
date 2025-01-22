@@ -18,7 +18,7 @@ debug: libswing
 # Build the test executable
 test: libswing
 	@echo -e "\033[1;34m[BUILD] Compiling test executable...\033[0m"
-	$(MAKE) -C test
+	$(MAKE) -C test $(if $(OMPI_TEST),OMPI_TEST=$(OMPI_TEST))
 	@echo ""
 
 # Build the change_collective_rules program

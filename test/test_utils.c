@@ -3,9 +3,11 @@
 #include <time.h>
 #include <math.h>
 #include <string.h>
+#include <inttypes.h>
 #include <sys/stat.h>
 
-#include "test_tool.h"
+#include "test_utils.h"
+#include "libswing.h"
 
 /**
  * @struct TypeMap
@@ -44,7 +46,7 @@ const static TypeMap type_map[] = {
  * @param[out] outputdir Output directory path.
  * @return 0 on success, -1 on error.
  */
-int get_command_line_arguments(int argc, char** argv, size_t *array_size, int* iter, const char **type_string, int * alg_number, const char **outputdir) {
+int get_command_line_arguments(int argc, char** argv, size_t *array_size, int* iter, const char **type_string, allreduce_algo_t *algorithm, const char **outputdir) {
   if (argc != 6) {
     fprintf(stderr, "Usage: %s <array_size> <iterations> <dtype> <algo> <outputdir>\n", argv[0]);
     return -1;
@@ -65,11 +67,18 @@ int get_command_line_arguments(int argc, char** argv, size_t *array_size, int* i
 
   *type_string = argv[3];
 
-  *alg_number = (int) strtol(argv[4], &endptr, 10);
-  if (*endptr != '\0' || *alg_number < 0 || *alg_number > 16) {
+  int alg_number = (int) strtol(argv[4], &endptr, 10);
+  if (*endptr != '\0' || alg_number < 0 || alg_number > 16) {
     fprintf(stderr, "Error: Invalid alg number. It must be in [0-16]. Aborting...\n");
     return -1;
   }
+  #ifndef OMPI_TEST
+  if (alg_number >= 8 && alg_number <= 13){
+    fprintf(stdout, "Error: Invalid alg number. OMPI_TEST is not being used. Aborting...\n");
+    return -1;
+  }
+  #endif
+  *algorithm = (allreduce_algo_t) alg_number;
 
   *outputdir = argv[5];
 
@@ -193,6 +202,7 @@ int are_equal_eps(const void *buf_1, const void *buf_2, size_t array_size, const
   return 0;
 }
 
+
 /**
  * @brief Concatenates a directory path and a filename into a full file path.
  *
@@ -229,6 +239,92 @@ int concatenate_path(const char *dir_path, const char *filename, char *fullpath)
   return 0;
 }
 
+// /**
+//  * @brief Writes timing results to a specified file using MPI parallel I/O.
+//  *
+//  * This function writes the timing values for all MPI ranks to a CSV file in parallel.
+//  * Each rank writes its own timing data into the correct position without redundant communication.
+//  *
+//  * The output format is:
+//  *   Header: rank0,rank1,...,rankN\n
+//  *   Iteration 0: time0_rank0,time0_rank1,...,time0_rankN\n
+//  *   Iteration 1: time1_rank0,time1_rank1,...,time1_rankN\n
+//  *   ...
+//  *
+//  * @param filename The full path to the output file.
+//  * @param local_times An array containing timing values for the calling rank across all iterations.
+//  * @param iter The number of iterations.
+//  * @param comm The MPI communicator.
+//  *
+//  * @return int Returns MPI_SUCCESS on success, MPI_ERR otherwise.
+//  *
+//  * @note Time is saved in nanoseconds (10^-9 seconds).
+//  */
+// int write_output_to_file(const char *filename, double *local_times, int iter, MPI_Comm comm) {
+//   int rank, comm_sz;
+//   MPI_Comm_rank(comm, &rank);  // Get the rank of the calling process
+//   MPI_Comm_size(comm, &comm_sz);  // Get the total number of processes
+//
+//   MPI_File output_file;
+//   MPI_Status status;
+//   MPI_Offset offset;
+//
+//   // Calculate time entry size dynamically
+//   // int time_entry_size = snprintf(NULL, 0, "%012" PRId64 ",", (int64_t)(1e12));
+//   int time_entry_size = 16;
+//   int line_length = (time_entry_size * comm_sz) + 1;  // Each line includes times for all ranks + newline
+//   MPI_Offset row_offset = line_length * rank;  // Offset to the correct position for each rank's data
+//   char *write_buffer;
+//   int buffer_size = iter * time_entry_size;
+//
+//   // Open the file for parallel writing
+//   if (MPI_File_open(comm, filename, MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &output_file) != MPI_SUCCESS) {
+//     if (rank == 0) {
+//       fprintf(stderr, "Error: Opening file %s for writing\n", filename);
+//     }
+//     return MPI_ERR_FILE;
+//   }
+//
+//   // Rank 0 writes the header (column labels)
+//   if (rank == 0) {
+//     write_buffer = (char *)malloc(line_length + 1);  // Allocate buffer for header row
+//     char *ptr = write_buffer;
+//     for (int i = 0; i < comm_sz; i++) {
+//       ptr += sprintf(ptr, (i == 0) ? "rank%d" : ",rank%d", i);
+//     }
+//     *ptr++ = '\n';  // Add newline at the end of the header
+//     MPI_File_write_at_all(output_file, 0, write_buffer, line_length, MPI_CHAR, &status);
+//     free(write_buffer);
+//   }
+//   MPI_Barrier(comm);  // Synchronize ranks before writing data
+//
+//   // Allocate buffer for rank's timing data
+//   write_buffer = (char *)malloc(buffer_size + 1);
+//   if (write_buffer == NULL) {
+//     fprintf(stderr, "Error: Memory allocation failed\n");
+//     MPI_File_close(&output_file);
+//     return -1;
+//   }
+//
+//   // Format local timing data into the buffer
+//   char *buf_ptr = write_buffer;
+//   for (int i = 0; i < iter; i++) {
+//     snprintf(buf_ptr, time_entry_size + 1, (i == iter - 1) ? "%012ld\n" : "%012ld,", (int64_t)(local_times[i] * 1e9));
+//     buf_ptr += time_entry_size;
+//   }
+//
+//   offset = (rank == 0 ? line_length : 0) + row_offset;  // Calculate offset, skipping header if rank 0
+//
+//   // Write each rank's timing data to its corresponding position
+//   for (int i = 0; i < iter; i++) {
+//     MPI_File_write_at_all(output_file, offset + i * line_length, write_buffer + i * time_entry_size, time_entry_size, MPI_CHAR, &status);
+//   }
+//
+//   free(write_buffer);  // Free allocated buffer
+//   MPI_File_close(&output_file);  // Close the file
+//   return MPI_SUCCESS;  // Return success
+// }
+
 /**
  * @brief Writes the timing results to a specified output file.
  *
@@ -241,13 +337,14 @@ int concatenate_path(const char *dir_path, const char *filename, char *fullpath)
  * @param all_times A 2D array flattened into 1D containing timing values for all ranks 
  *                  across all iterations.
  * @param iter The number of iterations.
- * @param comm_sz The number of ranks in the MPI communicator.
  *
  * @return int Returns 0 on success, or -1 if an error occurs while opening the file.
  *
  * @note Time is saved in ns (i.e. 10^-9 s).
  */
-int write_output_to_file(const char *fullpath, double *highest, double *all_times, int iter, int comm_sz) {
+int write_output_to_file(const char *fullpath, double *highest, double *all_times, int iter) {
+  int comm_sz;
+  MPI_Comm_size(MPI_COMM_WORLD, &comm_sz);
   FILE *output_file = fopen(fullpath, "w");
   if (output_file == NULL) {
     fprintf(stderr, "Error: Opening file %s for writing\n", fullpath);
@@ -263,9 +360,9 @@ int write_output_to_file(const char *fullpath, double *highest, double *all_time
 
   // Write the timing data
   for (int i = 0; i < iter; i++) {
-    fprintf(output_file, "%d", (int)(highest[i] * 1000000000));
+    fprintf(output_file, "%" PRId64, (int64_t)(highest[i] * 1e9));
     for (int j = 0; j < comm_sz; j++) {
-      fprintf(output_file, ",%d", (int)(all_times[j * iter + i] * 1000000000));
+      fprintf(output_file, ",%" PRId64, (int64_t)(all_times[j * iter + i] * 1e9));
     }
     fprintf(output_file, "\n");
   }
@@ -273,7 +370,6 @@ int write_output_to_file(const char *fullpath, double *highest, double *all_time
   fclose(output_file);
   return 0;
 }
-
 
 /**
  * @brief Checks if a file does not exists.
@@ -305,27 +401,34 @@ int file_not_exists(const char* filename) {
  * to synchronize ranks after writing the header.
  *
  * @param filename The name of the file to which the allocations will be written.
- * @return int Returns 0 on success, or -1 if an error occurs during file operations.
+ * @param comm The MPI communicator.
+ *
+ * @return int Returns MPI_SUCCESS on success, MPI_ERR otherwise.
  */
-int write_allocations_to_file(const char* filename) {
+int write_allocations_to_file(const char* filename, MPI_Comm comm) {
   int rank, comm_sz;
   char processor_name[MPI_MAX_PROCESSOR_NAME];
   int name_len;
 
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &comm_sz);
+  MPI_Comm_rank(comm, &rank);
+  MPI_Comm_size(comm, &comm_sz);
   MPI_Get_processor_name(processor_name, &name_len);
 
   MPI_File file;
-  MPI_File_open(MPI_COMM_WORLD, filename, MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &file);
+  if (MPI_File_open(comm, filename, MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &file) != MPI_SUCCESS) {
+    if (rank == 0) {
+      fprintf(stderr, "Error: Opening file %s for writing\n", filename);
+    }
+    return MPI_ERR_FILE;
+  }
 
-  const char header[] = "MPI rank,allocation\n";
+  const char header[] = "MPI_Rank,allocation\n";
   // Rank 0 writes the header to the file
   if (rank == 0) {
     MPI_File_write_at(file, 0, header, sizeof(header) - 1, MPI_CHAR, MPI_STATUS_IGNORE);
   }
 
-  MPI_Barrier(MPI_COMM_WORLD);  // Ensure header is written before writing rank data
+  MPI_Barrier(comm);  // Ensure header is written before writing rank data
 
   // Define a fixed-length buffer for each rank's entry
   char buffer[MPI_MAX_PROCESSOR_NAME + 16];  // Fixed space for rank, comma, name, and newline
@@ -338,5 +441,7 @@ int write_allocations_to_file(const char* filename) {
   MPI_File_write_at(file, offset, buffer, strlen(buffer), MPI_CHAR, MPI_STATUS_IGNORE);
 
   MPI_File_close(&file);
-  return 0;
+  return MPI_SUCCESS;
 }
+
+

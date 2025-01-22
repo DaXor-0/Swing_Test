@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ "$OMPI_TEST" == "yes" ]; then
+if [ "$ENABLE_OMPI_TEST" == "yes" ]; then
     source ~/use_ompi.sh
 fi
 

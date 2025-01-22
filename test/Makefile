@@ -1,6 +1,9 @@
 # Compiler and flags
 MPICC = mpicc
 CFLAGS = -O3 -Wall -I../include
+ifeq ($(OMPI_TEST), 1)
+	CFLAGS += -DOMPI_TEST
+endif
 
 # Directories
 SRC_DIR = .
