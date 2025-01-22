@@ -48,7 +48,7 @@ Parameter required are:
 - `<array_size>`: Size of the array to run the collective on.
 - `<iter>`: Number of total iterations to run of the specific test.
 - `<type_string>`: The string codifying the datatype of the test. Currently some of them don't work and documentation will be added.
-- `<alg_number>`: Number of Allreduce algorithm to run tests on
+- `<algorithm>`: Allreduce algorithm ID to run tests on.
 - `<dirpath>`: Directory where results will be saved.
 
 Before saving the results, a ground truth check on the last iteration is performed to check for possible errors.
@@ -202,7 +202,7 @@ A `.csv` file will be added to contain results metadata.
 #### Test program
 - [x] document functions and comment code
 - [x] create a function to write rank and allocation inside test without relying on normal `srun` in test suite
-- [ ] use enum when possible for clarity
+- [x] use enum when possible for clarity
 - [ ] create a general interface to select specific testing for specific collectives without duplicating code by adding a sea of if-else statements (in particular modify the test loop to use a function pointer for each specific allreduce function and a switch for other collectives)
 - [ ] separate and modularize ground truth check for different kinds of collectives
 - [ ] standardize .csv format to what was decided with professor De Sensi

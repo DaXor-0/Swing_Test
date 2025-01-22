@@ -1,10 +1,12 @@
 #!/bin/bash
 
-# Function to handle cleanup on script termination (e.g., Ctrl+C)
+# Function to handle cleanup on script termination
+# (e.g., Ctrl+C)
 cleanup() {
-    echo "Caught Ctrl+C! Stopping the script and killing all child processes..."
-    pkill -P $$    # Kills all processes whose parent is the current script
-    exit 1         # Exit the script with a non-zero status
+    echo "Caught Ctrl+C! Stopping the script and \
+          killing all child processes..."
+    pkill -P $$
+    exit 1
 }
 
 # Trap SIGINT (Ctrl+C) and call cleanup function
@@ -12,16 +14,39 @@ trap cleanup SIGINT
 
 # Validate and initialize N_NODES
 N_NODES=$1
-if [[ -z "$N_NODES" ]] || [[ ! "$N_NODES" =~ ^[0-9]+$ ]] || [ "$N_NODES" -lt 2 ]; then
-    echo "Error: N_NODES is not given or not set correctly. Please provide a valid number of nodes as FIRST argument."
+if [[ -z "$N_NODES" ]] || [[ ! "$N_NODES" =~ ^[0-9]+$ ]] \
+                       || [ "$N_NODES" -lt 2 ]; then
+    echo "Error: N_NODES is not given or not set correctly. \
+          Please provide a valid number of nodes as FIRST argument."
     exit 1
 fi
 
 # Default values for other parameters if not provided as arguments
-TIMESTAMP=${2:-$(date +"%Y_%m_%d___%H:%M:%S")} # Defaults to current timestamp
-LOCATION=${3:-local}                           # Defaults to 'local'
-CUDA=${4:-no}                                  # Defaults to 'no'
-OMPI_TEST=${5:-yes}                            # Defaults to 'yes'
+TIMESTAMP=${2:-$(date +"%Y_%m_%d___%H:%M:%S")}
+LOCATION=${3:-local}
+ENABLE_CUDA=${4:-no}
+ENABLE_OMPI_TEST=${5:-yes}
+
+ALGOS=(0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16)
+ARR_SIZES=(8 64 512 2048 16384 131072 1048576 8388608 67108864)
+TYPES=('int64')                          # Data types to test
+# Algorithms to skip if $N_NODES > $ARR_SIZE
+SKIP=(4 5 6 9 10 11 12 13 16)
+
+# Uncomment for all types 
+# NOTE: problems with char, int8, int16
+# TYPES=('int32' 'int64' 'float' 'double' 'char' 'int8' 'int16')
+
+# Remove all ompi_test algorithms from algo list
+# if `ENABLE_OMPI_TEST` is set to `no`
+if [ "$ENABLE_OMPI_TEST" == "no" ]; then
+    ALGOS=("${ALGOS[@]/8}")
+    ALGOS=("${ALGOS[@]/9}")
+    ALGOS=("${ALGOS[@]/10}")
+    ALGOS=("${ALGOS[@]/11}")
+    ALGOS=("${ALGOS[@]/12}")
+    ALGOS=("${ALGOS[@]/13}")
+fi
 
 # Load the environment-specific configuration based on the LOCATION
 if [ -f scripts/environments/${LOCATION}.sh ]; then
@@ -38,19 +63,13 @@ else
     exit 1
 fi
 
-ALGOS=(14 15 16)                    # List of algorithm indices to test
-SKIP=(4 5 6 9 10 11 12 13 16)       # Algorithms to skip if $N_NODES > $ARR_SIZE
-ARR_SIZES=(8 64 512 2048 16384)     # Number of elements in the array
-TYPES=('int64')                     # Data types to test
-# ALGOS=(0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16)                # Uncomment for all algorithms
-# ARR_SIZES=(8 64 512 2048 16384 131072 1048576 8388608 67108864) # Uncomment for all algorithms
-# TYPES=('int32' 'int64' 'float' 'double' 'char' 'int8' 'int16')  # Uncomment for all types  NOTE: problems with char, int8, int16
 
 # Output directories for results
 OUTPUT_DIR="$RES_DIR/$LOCATION/$TIMESTAMP/"
 DATA_DIR="$OUTPUT_DIR/data/"
 
-# Function to determine the number of iterations based on array size
+# Function to determine the number of iterations
+# based on array size
 get_iterations() {
     size=$1
     if [ $size -le 512 ]; then
@@ -74,8 +93,10 @@ run_test() {
     local type=$3
     local algo=$4
 
-    echo "Running -> $N_NODES processes, $size array size, $type datatype (Algo: $algo)"
-    $RUN $RUNFLAGS -n $N_NODES $TEST_EXEC $size $iter $type $algo $OUTPUT_DIR
+    echo "Running -> $N_NODES processes, $size array size, $type \
+          datatype (Algo: $algo)"
+    $RUN $RUNFLAGS -n $N_NODES $TEST_EXEC $size $iter $type $algo \
+          $OUTPUT_DIR
 }
 
 # Create necessary output directories
@@ -83,9 +104,15 @@ mkdir -p "$RES_DIR"
 mkdir -p "$OUTPUT_DIR"
 mkdir -p "$DATA_DIR"
 
-# Clean and compile the codebase
+# Clean and compile the codebase.
+# if `ENABLE_OMPI_TEST` is `yes`, the makefile
+# will inject it into `tests\...` files.
 make clean
-make all
+if [ "$ENABLE_OMPI_TEST" == "yes" ]; then
+    make all OMPI_TEST=1
+else
+    make all
+fi
 
 # Test algorithms here, loop through:
 # - algorithms:

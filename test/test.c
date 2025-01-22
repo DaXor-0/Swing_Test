@@ -2,14 +2,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "test_tool.h"
+#include "test_utils.h"
+#include "test_selection.h"
 #include "libswing.h"
+
 
 int main(int argc, char *argv[]) {
   MPI_Init(NULL, NULL);
-
   MPI_Comm comm = MPI_COMM_WORLD;
+
   int rank, comm_sz;
+  int line;
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &comm_sz);
 
@@ -19,19 +22,23 @@ int main(int argc, char *argv[]) {
   double start_time, end_time;
   
   size_t array_size;
-  int iter, alg_number;
+  int iter;
+  allreduce_algo_t algorithm;
+
   const char* type_string, *outputdir;
   // Get command line arguments
   if (get_command_line_arguments(argc, argv, &array_size, &iter, &type_string,
-                                 &alg_number, &outputdir) == -1){
-    goto cleanup;
+                                 &algorithm, &outputdir) == -1){
+    line = __LINE__;
+    goto err_hndl;
   }
   
   // Get size and MPI_Datatype from input `type_string`
   MPI_Datatype dtype;
   size_t type_size;
   if (get_data_type(type_string, &dtype, &type_size) == -1){
-    goto cleanup;
+    line = __LINE__;
+    goto err_hndl;
   }
 
   sendbuf = (char *)malloc(array_size * type_size);
@@ -42,7 +49,8 @@ int main(int argc, char *argv[]) {
   // Allocate memory for all ranks
   if (sendbuf == NULL || recvbuf == NULL || recvbuf_gt == NULL || times == NULL) {
     fprintf(stderr, "Error: Memory allocation failed. Aborting...\n");
-    goto cleanup;
+    line = __LINE__;
+    goto err_hndl;
   }
 
   // Allocate memory for rank0-specific buffers
@@ -51,32 +59,26 @@ int main(int argc, char *argv[]) {
     highest = (double *)malloc(iter * sizeof(double));
     if (all_times == NULL || highest == NULL){
       fprintf(stderr, "Error: Memory allocation failed. Aborting...\n");
-      goto cleanup;
+      line = __LINE__;
+      goto err_hndl;
     }
   }
-  
+
   // randomly generate the sendbuf
   if (rand_array_generator(sendbuf, type_string, array_size, rank) == -1){
-    goto cleanup;
+    line = __LINE__;
+    goto err_hndl;
   }
+  
+  // Use a function pointer to allow for both `MPI_Allreduce` and custom
+  // `Allreduce` defined in `include/libswing.a`
+  allreduce_func_ptr allreduce_func = select_algorithm(algorithm);
 
   // Perform ITER iterations of MPI_Allreduce and measure time
-  // TODO: use a switch, a function pointer or whatever else, but this is temporary
   for (int i = 0; i < iter; i++) {
     MPI_Barrier(comm);
     start_time = MPI_Wtime();
-    if (alg_number == 14){
-      allreduce_recursivedoubling(sendbuf, recvbuf, array_size, dtype, MPI_SUM, comm);
-    }
-    else if (alg_number == 15){
-      allreduce_swing_lat(sendbuf, recvbuf, array_size, dtype, MPI_SUM, comm);
-    }
-    else if (alg_number == 16){
-      allreduce_swing_bdw_static(sendbuf, recvbuf, array_size, dtype, MPI_SUM, comm);
-    }
-    else {
-      MPI_Allreduce(sendbuf, recvbuf, array_size, dtype, MPI_SUM, comm);
-    }
+    allreduce_func(sendbuf, recvbuf, array_size, dtype, MPI_SUM, comm);
     end_time = MPI_Wtime();
     times[i] = end_time - start_time;
   }
@@ -87,13 +89,15 @@ int main(int argc, char *argv[]) {
   if(dtype != MPI_DOUBLE && dtype != MPI_FLOAT){
     if (memcmp(recvbuf, recvbuf_gt, array_size * type_size) != 0){
       fprintf(stderr, "Error: results are not valid. Aborting...\n");
-      goto cleanup;
+      line = __LINE__;
+      goto err_hndl;
     }
   } else{
     // On floating point arithmetic ground-truth check also consider rounding errors
     if (are_equal_eps(recvbuf_gt, recvbuf, array_size, type_string, comm_sz) == -1){
       fprintf(stderr, "Error: results are not valid. Aborting...\n");
-      goto cleanup;
+      line = __LINE__;
+      goto err_hndl;
     }
   }
 
@@ -106,13 +110,15 @@ int main(int argc, char *argv[]) {
   if (rank == 0){
     char data_filename[128], data_fullpath[TEST_MAX_PATH_LENGTH];
     snprintf(data_filename, sizeof(data_filename), "data/%d_%ld_%s_%d.csv",
-             comm_sz, array_size, type_string, alg_number);
+             comm_sz, array_size, type_string, (int) algorithm);
     if (concatenate_path(outputdir, data_filename, data_fullpath) == -1) {
       fprintf(stderr, "Error: Failed to create fullpath.\n");
-      goto cleanup;
+      line = __LINE__;
+      goto err_hndl;
     }
-    if (write_output_to_file(data_fullpath, highest, all_times, iter, comm_sz) == -1){
-      goto cleanup;
+    if (write_output_to_file(data_fullpath, highest, all_times, iter) == -1){
+      line = __LINE__;
+      goto err_hndl;
     }
   }
 
@@ -121,7 +127,8 @@ int main(int argc, char *argv[]) {
   char alloc_fullpath[TEST_MAX_PATH_LENGTH];
   if (concatenate_path(outputdir, alloc_filename, alloc_fullpath) == -1){
     fprintf(stderr, "Error: Failed to create alloc_fullpath.\n");
-    goto cleanup;
+    line = __LINE__;
+    goto err_hndl;
   }
 
   // Write current allocations if and only if the file `alloc_fullpath`
@@ -131,10 +138,10 @@ int main(int argc, char *argv[]) {
   if (rank == 0){
     should_write_alloc = file_not_exists(alloc_fullpath);
   }
-  MPI_Bcast(&should_write_alloc, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  
-  if (should_write_alloc == 1 && write_allocations_to_file(alloc_fullpath) == -1){
-    goto cleanup;
+  MPI_Bcast(&should_write_alloc, 1, MPI_INT, 0, comm);
+  if (should_write_alloc == 1 && write_allocations_to_file(alloc_fullpath, comm) != MPI_SUCCESS){
+    line = __LINE__;
+    goto err_hndl;
   }
 
   // Clean up
@@ -142,27 +149,29 @@ int main(int argc, char *argv[]) {
   free(recvbuf);
   free(recvbuf_gt);
   free(times);
-  if (rank == 0){
-    free(all_times);
-    free(highest);
-  }
-  
-  MPI_Finalize();
 
-  return EXIT_SUCCESS;
-
-cleanup:
-  if (NULL != sendbuf)    free(sendbuf);
-  if (NULL != recvbuf)    free(recvbuf);
-  if (NULL != recvbuf_gt) free(recvbuf_gt);
-  if (NULL != times)      free(times);
-  
   if (rank == 0) {
     if (NULL != all_times)  free(all_times);
     if (NULL != highest)    free(highest);
   }
 
   MPI_Finalize();
+
+  return EXIT_SUCCESS;
+
+err_hndl:
+  fprintf(stderr, "ERROR in\n%s:%4d\tRank %d\n", __FILE__, line, rank);
+  (void)line;  // silence compiler warning
+  if (NULL != sendbuf)    free(sendbuf);
+  if (NULL != recvbuf)    free(recvbuf);
+  if (NULL != recvbuf_gt) free(recvbuf_gt);
+  if (NULL != times)      free(times);
+
+  if (rank == 0) {
+    if (NULL != all_times)  free(all_times);
+    if (NULL != highest)    free(highest);
+  } 
+  MPI_Abort(comm, MPI_ERR_UNKNOWN);
 
   return EXIT_FAILURE;
 }
